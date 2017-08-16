@@ -3,6 +3,7 @@ const vec2 = require('gl-matrix').vec2;
 const vec3 = require('gl-matrix').vec3;
 const vec4 = require('gl-matrix').vec4;
 const mat4 = require('gl-matrix').mat4;
+const glsl = require('glslify');
 
 const Timer = require('./Timer');
 
@@ -42,7 +43,7 @@ const regl = require('regl')({
 });
 
 roadCmd = regl({
-    vert: `
+    vert: glsl`
         precision mediump float;
 
         uniform mat4 camera;
@@ -64,8 +65,10 @@ roadCmd = regl({
         }
     `,
 
-    frag: `
+    frag: glsl`
         precision mediump float;
+
+        #pragma glslify: dither = require('glsl-dither/8x8')
 
         uniform float drawDistance;
 
@@ -79,7 +82,14 @@ roadCmd = regl({
             vec3 color = side * mod(dist, 4.0) > 2.0
                 ? vec3(0.25, 0.25, 0.27)
                 : vec3(0.16, 0.16, 0.18);
+
             gl_FragColor = vec4(color, 1.0);
+
+            float fade = 1.0 - clamp((gl_FragCoord.z - 0.95) / 0.05, 0.0, 1.0);
+
+            if (dither(gl_FragCoord.xy, fade) < 1.0) {
+                discard;
+            }
         }
     `,
 

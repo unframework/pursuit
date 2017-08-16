@@ -6,11 +6,16 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "browserify": {
+    "transform": ["glslify"]
+  },
   "author": "Nick Matantsev <nick.matantsev@gmail.com>",
   "license": "ISC",
   "dependencies": {
     "browserify": "^14.4.0",
     "gl-matrix": "^2.4.0",
+    "glsl-dither": "^1.0.1",
+    "glslify": "^6.1.0",
     "onecolor": "^3.0.4",
     "regl": "^1.3.0"
   }
