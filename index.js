@@ -76,8 +76,10 @@ roadCmd = regl({
             float lanePos = mod((facePosition.x + 1.0) * 1.6 - 0.1, 1.0);
             float side = 1.0 - step(0.02, lanePos) * step(lanePos, 0.98);
 
-            float intensity = side * mod(dist, 4.0) > 2.0 ? 1.0 : 0.85;
-            gl_FragColor = vec4(vec3(0.15, 0.25, 0.3) * intensity, 1.0);
+            vec3 color = side * mod(dist, 4.0) > 2.0
+                ? vec3(0.25, 0.25, 0.27)
+                : vec3(0.16, 0.16, 0.18);
+            gl_FragColor = vec4(color, 1.0);
         }
     `,
 
@@ -126,7 +128,7 @@ const timer = new Timer(STEP, 0, function () {
     mat4.translate(camera, camera, cameraPosition);
 
     regl.clear({
-        color: [ 0.2, 0.2, 0.2, 1 ],
+        color: [ 0.1, 0.1, 0.1, 1 ],
         depth: 1
     });
 
