@@ -131,8 +131,10 @@ fogCmd = regl({
         precision mediump float;
 
         attribute vec2 position;
+        varying vec2 facePosition;
 
         void main() {
+            facePosition = position;
             gl_Position = vec4(position, 0, 1.0);
         }
     `,
@@ -140,6 +142,12 @@ fogCmd = regl({
     frag: glsl`
         #extension GL_EXT_frag_depth: require
         precision mediump float;
+
+        #pragma glslify: snoise3 = require('glsl-noise/simplex/3d')
+
+        uniform float time;
+
+        varying vec2 facePosition;
 
         // from glsl-dither/8x8.glsl by @hughsk
         float ditherLimit8x8(vec2 position) {
@@ -220,9 +228,15 @@ fogCmd = regl({
 
         void main() {
             float limit = ditherLimit8x8(gl_FragCoord.xy);
+            float noise = snoise3(vec3(facePosition, time * 0.1));
 
-            gl_FragColor = vec4(vec3(0.1, 0.1, 0.1), 1.0);
-            gl_FragDepthEXT = 1.0 - 0.05 * limit * limit;
+            gl_FragColor = vec4(
+                0.05 + noise * 0.02,
+                0.07 + noise * 0.02 + 0.025 * facePosition.y,
+                0.07 + noise * 0.02 + 0.05 * facePosition.y,
+                1.0
+            );
+            gl_FragDepthEXT = 1.0 - 0.025 * limit * (1.0 + 0.5 * noise);
         }
     `,
 
@@ -236,6 +250,7 @@ fogCmd = regl({
     },
 
     uniforms: {
+        time: regl.prop('time')
     },
 
     primitive: 'triangle fan',
@@ -267,6 +282,7 @@ const timer = new Timer(STEP, 0, function () {
     mat4.translate(camera, camera, cameraPosition);
 
     fogCmd({
+        time: now
     });
 
     roadCmd({
