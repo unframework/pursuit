@@ -52,6 +52,7 @@ roadCmd = regl({
         uniform mat4 camera;
         uniform float roadLaneWidth;
         uniform float roadShoulderWidth;
+        uniform float segmentRadius;
         uniform float segmentLength;
         uniform float segmentOffset;
         attribute vec2 position;
@@ -59,13 +60,20 @@ roadCmd = regl({
         varying vec2 roadPosition;
 
         void main() {
+            float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
+
             roadPosition = vec2(
-                position.x * (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5,
+                position.x * roadHalfWidth,
                 position.y * segmentLength + segmentOffset
             );
 
+            float angle = (position.y * segmentLength + segmentOffset) / segmentRadius;
+
+            vec2 across = vec2(cos(angle), sin(angle));
+            vec2 center = across * segmentRadius;
+
             gl_Position = camera * vec4(
-                roadPosition,
+                center + across * position.x * roadHalfWidth,
                 0,
                 1.0
             );
@@ -116,10 +124,10 @@ roadCmd = regl({
 
     attributes: {
         position: regl.buffer([
-            [ -1, 0 ],
-            [ 1, 0 ],
-            [ 1,  1 ],
-            [ -1, 1 ]
+            Array.prototype.concat.call([], Array.apply(null, new Array(20 + 1)).map((p, part) => [
+                [ -1, part / 20 ],
+                [ 1, part / 20 ]
+            ]))
         ])
     },
 
@@ -129,13 +137,14 @@ roadCmd = regl({
         roadShoulderWidth: regl.prop('roadShoulderWidth'),
         roadMarkerWidth: regl.prop('roadMarkerWidth'),
         roadLaneMarkerLength: regl.prop('roadLaneMarkerLength'),
+        segmentRadius: regl.prop('segmentRadius'),
         segmentLength: regl.prop('segmentLength'),
         segmentOffset: regl.prop('segmentOffset'),
         camera: regl.prop('camera')
     },
 
-    primitive: 'triangle fan',
-    count: 4
+    primitive: 'triangle strip',
+    count: (20 + 1) * 2
 });
 
 fogCmd = regl({
@@ -199,8 +208,8 @@ const camera = mat4.create();
 const STEP = 1 / 60.0;
 
 const CAMERA_HEIGHT = 2.5;
-const DRAW_CYCLE = 100;
-const DRAW_DISTANCE = DRAW_CYCLE * 4;
+const DRAW_CYCLE = 300;
+const DRAW_DISTANCE = 400;
 const ROAD_LANE_WIDTH = 3.2;
 const ROAD_SHOULDER_WIDTH = 1.8;
 const ROAD_MARKER_WIDTH = 0.15;
@@ -212,13 +221,21 @@ const speed = 90 / 3.6; // km/h to m/s
 const timer = new Timer(STEP, 0, function () {
     offset += speed * STEP;
 }, function (now) {
-    mat4.perspective(camera, 0.6, canvas.width / canvas.height, 1, DRAW_DISTANCE - DRAW_CYCLE);
+    segmentRadius = DRAW_CYCLE * 4;
+    segmentLength = DRAW_CYCLE * 2;
+
+    camAngle = offset / segmentRadius;
+
+    mat4.perspective(camera, 0.6, canvas.width / canvas.height, 1, DRAW_DISTANCE);
+
+    // yaw
+    mat4.rotateY(camera, camera, -camAngle);
 
     // pitch
     mat4.rotateX(camera, camera, -Math.PI / 2);
 
     // camera shake and offset
-    vec3.set(cameraPosition, 0.02 * Math.sin(now * 3.43), -offset, -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
+    vec3.set(cameraPosition, 0.02 * Math.sin(now * 3.43) - segmentRadius * Math.cos(camAngle), -segmentRadius * Math.sin(camAngle), -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
     mat4.translate(camera, camera, cameraPosition);
 
     fogCmd({
@@ -231,8 +248,9 @@ const timer = new Timer(STEP, 0, function () {
         roadShoulderWidth: ROAD_SHOULDER_WIDTH,
         roadMarkerWidth: ROAD_MARKER_WIDTH,
         roadLaneMarkerLength: ROAD_LANE_MARKER_LENGTH,
-        segmentLength: DRAW_DISTANCE * 2,
-        segmentOffset: offset - offset % DRAW_DISTANCE,
+        segmentRadius: segmentRadius,
+        segmentLength: segmentLength,
+        segmentOffset: offset - offset % DRAW_CYCLE,
         camera: camera
     });
 });
