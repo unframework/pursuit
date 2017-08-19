@@ -50,17 +50,21 @@ roadCmd = regl({
         precision mediump float;
 
         uniform mat4 camera;
+        uniform float roadLaneWidth;
+        uniform float roadShoulderWidth;
         uniform float drawDistance;
         attribute vec2 position;
 
-        varying vec2 facePosition;
+        varying vec2 roadPosition;
 
         void main() {
-            facePosition = position;
+            roadPosition = vec2(
+                position.x * (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5,
+                position.y * drawDistance
+            );
 
             gl_Position = camera * vec4(
-                position.x * 4.75,
-                position.y * drawDistance,
+                roadPosition,
                 0,
                 1.0
             );
@@ -73,15 +77,17 @@ roadCmd = regl({
         #pragma glslify: dither = require('glsl-dither/8x8')
         #pragma glslify: cnoise2 = require('glsl-noise/classic/2d')
 
-        uniform float drawDistance;
+        uniform float roadLaneWidth;
+        uniform float roadMarkerWidth;
+        uniform float roadLaneMarkerLength;
         uniform float drawOffset;
 
-        varying vec2 facePosition;
+        varying vec2 roadPosition;
 
         void main() {
             vec2 roadPos = vec2(
-                facePosition.x * 4.75,
-                facePosition.y * drawDistance + drawOffset
+                roadPosition.x,
+                roadPosition.y + drawOffset
             );
 
             vec2 asphaltPos = roadPos * vec2(20.0, 10.0);
@@ -95,11 +101,18 @@ roadCmd = regl({
             float asphaltSpec = clamp((asphaltNoise - 0.8) / 0.2, 0.0, 1.0);
             float asphaltCrack = clamp(-0.6 - asphaltNoise, 0.0, 1.0) / 0.4;
 
-            float lanePos = mod((facePosition.x + 1.0) * 1.6 - 0.1, 1.0);
-            float side = 1.0 - step(0.02, lanePos) * step(lanePos, 0.98);
+            float distToMidLane = abs(roadLaneWidth * 0.5 - abs(roadPos.x));
+            float distToEdgeLane = abs(roadLaneWidth * 1.5 - abs(roadPos.x));
 
-            vec3 color = side * mod(roadPos.y, 4.0) > 2.0
-                ? vec3(0.25, 0.25, 0.27)
+            float notMidLane = 1.0 - (
+                step(distToMidLane, roadMarkerWidth * 0.5) *
+                step(roadLaneMarkerLength, mod(roadPos.y, roadLaneMarkerLength * 2.0))
+            );
+            float notEdgeLane = step(roadMarkerWidth * 0.5, distToEdgeLane);
+            float notMarker = notMidLane * notEdgeLane;
+
+            vec3 color = notMarker < 1.0
+                ? vec3(0.35, 0.35, 0.37) * (1.0 - asphaltCrack * 0.5)
                 : vec3(0.16, 0.16, 0.18) * (1.0 - asphaltCrack * 0.3 + asphaltSpec * 0.8);
 
             gl_FragColor = vec4(color * (0.88 + wearNoise * 0.12), 1.0);
@@ -117,6 +130,10 @@ roadCmd = regl({
 
     uniforms: {
         aspectRatio: regl.prop('aspectRatio'),
+        roadLaneWidth: regl.prop('roadLaneWidth'),
+        roadShoulderWidth: regl.prop('roadShoulderWidth'),
+        roadMarkerWidth: regl.prop('roadMarkerWidth'),
+        roadLaneMarkerLength: regl.prop('roadLaneMarkerLength'),
         drawDistance: regl.prop('drawDistance'),
         drawOffset: regl.prop('drawOffset'),
         camera: regl.prop('camera')
@@ -189,6 +206,10 @@ const STEP = 1 / 60.0;
 const CAMERA_HEIGHT = 2.5;
 const DRAW_CYCLE = 100;
 const DRAW_DISTANCE = DRAW_CYCLE * 4;
+const ROAD_LANE_WIDTH = 3.2;
+const ROAD_SHOULDER_WIDTH = 1.8;
+const ROAD_MARKER_WIDTH = 0.15;
+const ROAD_LANE_MARKER_LENGTH = 4.5;
 
 let offset = 0;
 const speed = 90 / 3.6; // km/h to m/s
@@ -211,6 +232,10 @@ const timer = new Timer(STEP, 0, function () {
 
     roadCmd({
         aspectRatio: aspectRatio,
+        roadLaneWidth: ROAD_LANE_WIDTH,
+        roadShoulderWidth: ROAD_SHOULDER_WIDTH,
+        roadMarkerWidth: ROAD_MARKER_WIDTH,
+        roadLaneMarkerLength: ROAD_LANE_MARKER_LENGTH,
         drawDistance: DRAW_DISTANCE,
         drawOffset: offset,
         camera: camera
