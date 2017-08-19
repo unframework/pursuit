@@ -52,7 +52,8 @@ roadCmd = regl({
         uniform mat4 camera;
         uniform float roadLaneWidth;
         uniform float roadShoulderWidth;
-        uniform float drawDistance;
+        uniform float segmentLength;
+        uniform float segmentOffset;
         attribute vec2 position;
 
         varying vec2 roadPosition;
@@ -60,7 +61,7 @@ roadCmd = regl({
         void main() {
             roadPosition = vec2(
                 position.x * (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5,
-                position.y * drawDistance
+                position.y * segmentLength + segmentOffset
             );
 
             gl_Position = camera * vec4(
@@ -80,19 +81,13 @@ roadCmd = regl({
         uniform float roadLaneWidth;
         uniform float roadMarkerWidth;
         uniform float roadLaneMarkerLength;
-        uniform float drawOffset;
 
         varying vec2 roadPosition;
 
         void main() {
-            vec2 roadPos = vec2(
-                roadPosition.x,
-                roadPosition.y + drawOffset
-            );
+            vec2 asphaltPos = roadPosition * vec2(20.0, 10.0);
 
-            vec2 asphaltPos = roadPos * vec2(20.0, 10.0);
-
-            float wearNoise = cnoise2(roadPos / vec2(4.3, 12.9));
+            float wearNoise = cnoise2(roadPosition / vec2(4.3, 12.9));
             float asphaltNoise = cnoise2(vec2(
                 asphaltPos.x - mod(asphaltPos.x, 0.5),
                 asphaltPos.y - mod(asphaltPos.y, 0.5)
@@ -101,12 +96,12 @@ roadCmd = regl({
             float asphaltSpec = clamp((asphaltNoise - 0.8) / 0.2, 0.0, 1.0);
             float asphaltCrack = clamp(-0.6 - asphaltNoise, 0.0, 1.0) / 0.4;
 
-            float distToMidLane = abs(roadLaneWidth * 0.5 - abs(roadPos.x));
-            float distToEdgeLane = abs(roadLaneWidth * 1.5 - abs(roadPos.x));
+            float distToMidLane = abs(roadLaneWidth * 0.5 - abs(roadPosition.x));
+            float distToEdgeLane = abs(roadLaneWidth * 1.5 - abs(roadPosition.x));
 
             float notMidLane = 1.0 - (
                 step(distToMidLane, roadMarkerWidth * 0.5) *
-                step(roadLaneMarkerLength, mod(roadPos.y, roadLaneMarkerLength * 2.0))
+                step(roadLaneMarkerLength, mod(roadPosition.y, roadLaneMarkerLength * 2.0))
             );
             float notEdgeLane = step(roadMarkerWidth * 0.5, distToEdgeLane);
             float notMarker = notMidLane * notEdgeLane;
@@ -134,8 +129,8 @@ roadCmd = regl({
         roadShoulderWidth: regl.prop('roadShoulderWidth'),
         roadMarkerWidth: regl.prop('roadMarkerWidth'),
         roadLaneMarkerLength: regl.prop('roadLaneMarkerLength'),
-        drawDistance: regl.prop('drawDistance'),
-        drawOffset: regl.prop('drawOffset'),
+        segmentLength: regl.prop('segmentLength'),
+        segmentOffset: regl.prop('segmentOffset'),
         camera: regl.prop('camera')
     },
 
@@ -223,7 +218,7 @@ const timer = new Timer(STEP, 0, function () {
     mat4.rotateX(camera, camera, -Math.PI / 2);
 
     // camera shake and offset
-    vec3.set(cameraPosition, 0.02 * Math.sin(now * 3.43), 0, -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
+    vec3.set(cameraPosition, 0.02 * Math.sin(now * 3.43), -offset, -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
     mat4.translate(camera, camera, cameraPosition);
 
     fogCmd({
@@ -236,8 +231,8 @@ const timer = new Timer(STEP, 0, function () {
         roadShoulderWidth: ROAD_SHOULDER_WIDTH,
         roadMarkerWidth: ROAD_MARKER_WIDTH,
         roadLaneMarkerLength: ROAD_LANE_MARKER_LENGTH,
-        drawDistance: DRAW_DISTANCE,
-        drawOffset: offset,
+        segmentLength: DRAW_DISTANCE * 2,
+        segmentOffset: offset - offset % DRAW_DISTANCE,
         camera: camera
     });
 });
