@@ -49,10 +49,10 @@ roadCmd = regl({
     vert: glsl`
         precision mediump float;
 
+        #pragma glslify: roadSettings = require('./roadSettings')
+
         uniform mat4 camera;
         uniform float viewOffset;
-        uniform float roadLaneWidth;
-        uniform float roadShoulderWidth;
         uniform float segmentRadius;
         uniform float segmentLength;
         uniform float segmentOffset;
@@ -96,15 +96,12 @@ roadCmd = regl({
     frag: glsl`
         precision mediump float;
 
+        #pragma glslify: roadSettings = require('./roadSettings')
         #pragma glslify: dither = require('glsl-dither/8x8')
         #pragma glslify: cnoise2 = require('glsl-noise/classic/2d')
         #pragma glslify: computeSegmentPosition = require('./segment')
 
         uniform float viewOffset;
-        uniform float roadLaneWidth;
-        uniform float roadShoulderWidth;
-        uniform float roadMarkerWidth;
-        uniform float roadLaneMarkerLength;
 
         varying vec2 roadPosition;
 
@@ -159,10 +156,6 @@ roadCmd = regl({
     uniforms: {
         aspectRatio: regl.prop('aspectRatio'),
         viewOffset: regl.prop('viewOffset'),
-        roadLaneWidth: regl.prop('roadLaneWidth'),
-        roadShoulderWidth: regl.prop('roadShoulderWidth'),
-        roadMarkerWidth: regl.prop('roadMarkerWidth'),
-        roadLaneMarkerLength: regl.prop('roadLaneMarkerLength'),
         segmentRadius: regl.prop('segmentRadius'),
         segmentLength: regl.prop('segmentLength'),
         segmentOffset: regl.prop('segmentOffset'),
@@ -236,10 +229,6 @@ const STEP = 1 / 60.0;
 const CAMERA_HEIGHT = 2.5;
 const DRAW_CYCLE = 300;
 const DRAW_DISTANCE = 400;
-const ROAD_LANE_WIDTH = 3.2;
-const ROAD_SHOULDER_WIDTH = 1.8;
-const ROAD_MARKER_WIDTH = 0.15;
-const ROAD_LANE_MARKER_LENGTH = 4.5;
 
 let offset = 0;
 const speed = 90 / 3.6; // km/h to m/s
@@ -268,10 +257,6 @@ const timer = new Timer(STEP, 0, function () {
     roadCmd({
         aspectRatio: aspectRatio,
         viewOffset: offset,
-        roadLaneWidth: ROAD_LANE_WIDTH,
-        roadShoulderWidth: ROAD_SHOULDER_WIDTH,
-        roadMarkerWidth: ROAD_MARKER_WIDTH,
-        roadLaneMarkerLength: ROAD_LANE_MARKER_LENGTH,
         segmentRadius: segmentRadius,
         segmentLength: segmentLength,
         segmentOffset: offset - offset % DRAW_CYCLE,
