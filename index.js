@@ -99,6 +99,7 @@ roadCmd = regl({
         #pragma glslify: dither = require('glsl-dither/8x8')
         #pragma glslify: cnoise2 = require('glsl-noise/classic/2d')
 
+        uniform float viewOffset;
         uniform float roadLaneWidth;
         uniform float roadMarkerWidth;
         uniform float roadLaneMarkerLength;
@@ -106,9 +107,16 @@ roadCmd = regl({
         varying vec2 roadPosition;
 
         void main() {
-            vec2 asphaltPos = roadPosition * vec2(20.0, 10.0);
+            float depth = 0.01 * (roadPosition.y - viewOffset);
 
-            float wearNoise = cnoise2(roadPosition / vec2(4.3, 12.9));
+            vec2 segmentPosition = vec2(
+                roadPosition.x + 10.0 * depth * depth,
+                roadPosition.y
+            );
+
+            vec2 asphaltPos = segmentPosition * vec2(20.0, 10.0);
+
+            float wearNoise = cnoise2(segmentPosition / vec2(4.3, 12.9));
             float asphaltNoise = cnoise2(vec2(
                 asphaltPos.x - mod(asphaltPos.x, 0.5),
                 asphaltPos.y - mod(asphaltPos.y, 0.5)
@@ -117,12 +125,12 @@ roadCmd = regl({
             float asphaltSpec = clamp((asphaltNoise - 0.8) / 0.2, 0.0, 1.0);
             float asphaltCrack = clamp(-0.6 - asphaltNoise, 0.0, 1.0) / 0.4;
 
-            float distToMidLane = abs(roadLaneWidth * 0.5 - abs(roadPosition.x));
-            float distToEdgeLane = abs(roadLaneWidth * 1.5 - abs(roadPosition.x));
+            float distToMidLane = abs(roadLaneWidth * 0.5 - abs(segmentPosition.x));
+            float distToEdgeLane = abs(roadLaneWidth * 1.5 - abs(segmentPosition.x));
 
             float notMidLane = 1.0 - (
                 step(distToMidLane, roadMarkerWidth * 0.5) *
-                step(roadLaneMarkerLength, mod(roadPosition.y, roadLaneMarkerLength * 2.0))
+                step(roadLaneMarkerLength, mod(segmentPosition.y, roadLaneMarkerLength * 2.0))
             );
             float notEdgeLane = step(roadMarkerWidth * 0.5, distToEdgeLane);
             float notMarker = notMidLane * notEdgeLane;
