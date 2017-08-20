@@ -101,18 +101,25 @@ roadCmd = regl({
 
         uniform float viewOffset;
         uniform float roadLaneWidth;
+        uniform float roadShoulderWidth;
         uniform float roadMarkerWidth;
         uniform float roadLaneMarkerLength;
 
         varying vec2 roadPosition;
 
         void main() {
+            float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
             float depth = 0.01 * (roadPosition.y - viewOffset);
 
             vec2 segmentPosition = vec2(
                 roadPosition.x + 10.0 * depth * depth,
                 roadPosition.y
             );
+
+            if (roadHalfWidth < abs(segmentPosition.x)) {
+                discard;
+                return;
+            }
 
             vec2 asphaltPos = segmentPosition * vec2(20.0, 10.0);
 
