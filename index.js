@@ -98,6 +98,7 @@ roadCmd = regl({
 
         #pragma glslify: dither = require('glsl-dither/8x8')
         #pragma glslify: cnoise2 = require('glsl-noise/classic/2d')
+        #pragma glslify: computeSegmentPosition = require('./segment')
 
         uniform float viewOffset;
         uniform float roadLaneWidth;
@@ -109,12 +110,8 @@ roadCmd = regl({
 
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
-            float depth = 0.01 * (roadPosition.y - viewOffset);
 
-            vec2 segmentPosition = vec2(
-                roadPosition.x + 10.0 * depth * depth,
-                roadPosition.y
-            );
+            vec2 segmentPosition = computeSegmentPosition(roadPosition, viewOffset, 10.0);
 
             if (roadHalfWidth < abs(segmentPosition.x)) {
                 discard;
