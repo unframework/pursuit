@@ -50,6 +50,7 @@ roadCmd = regl({
         precision mediump float;
 
         uniform mat4 camera;
+        uniform float viewOffset;
         uniform float roadLaneWidth;
         uniform float roadShoulderWidth;
         uniform float segmentRadius;
@@ -62,21 +63,33 @@ roadCmd = regl({
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
-            roadPosition = vec2(
-                position.x * roadHalfWidth,
+            // ensure vertices are not "behind" camera, otherwise perspective correction gets busted
+            float roadY = max(
+                viewOffset + 0.1,
                 position.y * segmentLength + segmentOffset
             );
 
-            float angle = (position.y * segmentLength + segmentOffset) / segmentRadius;
-
-            vec2 across = vec2(cos(angle), sin(angle));
-            vec2 center = across * segmentRadius;
-
             gl_Position = camera * vec4(
-                center + across * position.x * roadHalfWidth,
+                0,
+                roadY,
                 0,
                 1.0
             );
+
+            vec4 edgePosition = camera * vec4(
+                roadHalfWidth * position.x,
+                roadY,
+                0,
+                1.0
+            );
+
+            roadPosition = vec2(
+                gl_Position.w * roadHalfWidth / (edgePosition.x - gl_Position.x) - gl_Position.x / gl_Position.z,
+                roadY
+            );
+
+            // un-correct perspective to fill screen horizontally
+            gl_Position.x = position.x * gl_Position.w;
         }
     `,
 
@@ -124,15 +137,16 @@ roadCmd = regl({
 
     attributes: {
         position: regl.buffer([
-            Array.prototype.concat.call([], Array.apply(null, new Array(20 + 1)).map((p, part) => [
-                [ -1, part / 20 ],
-                [ 1, part / 20 ]
-            ]))
+            [ -1, 0 ],
+            [ 1, 0 ],
+            [ 1,  1 ],
+            [ -1, 1 ]
         ])
     },
 
     uniforms: {
         aspectRatio: regl.prop('aspectRatio'),
+        viewOffset: regl.prop('viewOffset'),
         roadLaneWidth: regl.prop('roadLaneWidth'),
         roadShoulderWidth: regl.prop('roadShoulderWidth'),
         roadMarkerWidth: regl.prop('roadMarkerWidth'),
@@ -143,8 +157,8 @@ roadCmd = regl({
         camera: regl.prop('camera')
     },
 
-    primitive: 'triangle strip',
-    count: (20 + 1) * 2
+    primitive: 'triangle fan',
+    count: 4
 });
 
 fogCmd = regl({
@@ -228,14 +242,11 @@ const timer = new Timer(STEP, 0, function () {
 
     mat4.perspective(camera, 0.6, canvas.width / canvas.height, 1, DRAW_DISTANCE);
 
-    // yaw
-    mat4.rotateY(camera, camera, -camAngle);
-
     // pitch
     mat4.rotateX(camera, camera, -Math.PI / 2);
 
     // camera shake and offset
-    vec3.set(cameraPosition, 0.02 * Math.sin(now * 3.43) - segmentRadius * Math.cos(camAngle), -segmentRadius * Math.sin(camAngle), -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
+    vec3.set(cameraPosition, 0.02 * Math.sin(now * 3.43), -offset, -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
     mat4.translate(camera, camera, cameraPosition);
 
     fogCmd({
@@ -244,6 +255,7 @@ const timer = new Timer(STEP, 0, function () {
 
     roadCmd({
         aspectRatio: aspectRatio,
+        viewOffset: offset,
         roadLaneWidth: ROAD_LANE_WIDTH,
         roadShoulderWidth: ROAD_SHOULDER_WIDTH,
         roadMarkerWidth: ROAD_MARKER_WIDTH,
