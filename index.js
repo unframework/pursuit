@@ -169,88 +169,115 @@ roadCmd = regl({
     count: 4
 });
 
-const POST_COUNT = 6;
+function roadItemCommand(itemCount, itemPlacement, itemFrag) {
+    return regl({
+        vert: glsl`
+            precision mediump float;
 
-postCmd = regl({
-    vert: glsl`
-        precision mediump float;
+            #pragma glslify: roadSettings = require('./roadSettings')
+            #pragma glslify: computeSegmentX = require('./segment')
 
-        #pragma glslify: roadSettings = require('./roadSettings')
-        #pragma glslify: computeSegmentX = require('./segment')
+            uniform float segmentOffset;
+            uniform float segmentLength;
+            uniform float segmentX;
+            uniform float segmentDX;
+            uniform float segmentCurvature;
+            uniform float segmentFullLength;
+            uniform mat4 camera;
 
-        uniform float segmentOffset;
-        uniform float segmentLength;
-        uniform float segmentX;
-        uniform float segmentDX;
-        uniform float segmentCurvature;
-        uniform float segmentFullLength;
-        uniform mat4 camera;
+            attribute vec3 position;
 
-        attribute vec3 position;
+            varying vec2 facePosition;
 
-        varying vec2 facePosition;
+            ${itemPlacement}
 
-        void main() {
-            float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
+            void main() {
+                float viewPlanePositionY = segmentOffset + segmentLength - segmentFullLength * position.z;
+                float xOffset = computeSegmentX(viewPlanePositionY, segmentOffset, segmentCurvature, segmentX, segmentDX);
 
-            float viewPlanePositionY = segmentOffset + segmentLength - segmentFullLength * position.z;
-            float xOffset = computeSegmentX(viewPlanePositionY, segmentOffset, segmentCurvature, segmentX, segmentDX);
+                facePosition = position.xy;
 
-            facePosition = position.xy;
+                vec2 size = getItemSize();
 
-            gl_Position = camera * vec4(
-                roadHalfWidth + 1.0 + position.x * 0.1 + xOffset,
-                viewPlanePositionY,
-                position.y * 6.5,
-                1.0
-            );
-        }
-    `,
+                gl_Position = camera * vec4(
+                    getItemCenter() + vec3(
+                        position.x * size.x + xOffset,
+                        viewPlanePositionY,
+                        position.y * size.y
+                    ),
+                    1.0
+                );
+            }
+        `,
 
-    frag: glsl`
-        precision mediump float;
+        frag: glsl`
+            precision mediump float;
 
-        varying vec2 facePosition;
+            varying vec2 facePosition;
 
-        void main() {
-            gl_FragColor = vec4(
-                (0.1 + facePosition.y * 0.9) * vec3(
-                    0.6,
-                    0.65,
-                    0.7
-                ),
-                1.0
-            );
-        }
-    `,
+            ${itemFrag}
+        `,
 
-    attributes: {
-        position: regl.buffer([
-            Array.apply(null, new Array(POST_COUNT)).map((noop, index) => [
-                [ -1, 0, index / POST_COUNT ],
-                [ 1, 0, index / POST_COUNT ],
-                [ -1, 1, index / POST_COUNT ],
-                [ 1,  1, index / POST_COUNT ],
+        attributes: {
+            position: regl.buffer([
+                Array.apply(null, new Array(itemCount)).map((noop, index) => [
+                    [ -1, -1, index / itemCount ],
+                    [ 1, -1, index / itemCount ],
+                    [ -1, 1, index / itemCount ],
+                    [ 1,  1, index / itemCount ],
 
-                [ 1,  1, index / POST_COUNT ],
-                [ -1, 0, (index + 1) / POST_COUNT ]
+                    [ 1,  1, index / itemCount ],
+                    [ -1, -1, (index + 1) / itemCount ]
+                ])
             ])
-        ])
-    },
+        },
 
-    uniforms: {
-        segmentOffset: regl.prop('segmentOffset'),
-        segmentLength: regl.prop('segmentLength'),
-        segmentX: regl.prop('segmentX'),
-        segmentDX: regl.prop('segmentDX'),
-        segmentCurvature: regl.prop('segmentCurvature'),
-        segmentFullLength: regl.prop('segmentFullLength'),
-        camera: regl.prop('camera')
-    },
+        uniforms: {
+            segmentOffset: regl.prop('segmentOffset'),
+            segmentLength: regl.prop('segmentLength'),
+            segmentX: regl.prop('segmentX'),
+            segmentDX: regl.prop('segmentDX'),
+            segmentCurvature: regl.prop('segmentCurvature'),
+            segmentFullLength: regl.prop('segmentFullLength'),
+            camera: regl.prop('camera')
+        },
 
-    primitive: 'triangle strip',
-    count: POST_COUNT * 6
-});
+        primitive: 'triangle strip',
+        count: itemCount * 6
+    });
+}
+
+postCmd = roadItemCommand(6, `
+    vec3 getItemCenter() {
+        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
+
+        return vec3(
+            roadHalfWidth + 1.0,
+            0,
+            3.25
+        );
+    }
+
+    vec2 getItemSize() {
+        return vec2(
+            0.1,
+            3.25
+        );
+    }
+`, `
+    void main() {
+        float fade = facePosition.y * 0.5 + 0.5;
+
+        gl_FragColor = vec4(
+            (0.1 + fade * 0.9) * vec3(
+                0.6,
+                0.65,
+                0.7
+            ),
+            1.0
+        );
+    }
+`);
 
 fogCmd = regl({
     vert: glsl`
