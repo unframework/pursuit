@@ -110,14 +110,17 @@ roadCmd = regl({
                 viewPlanePosition.y
             );
 
-            if (roadHalfWidth < abs(segmentPosition.x)) {
-                discard;
+            float wearNoise = cnoise2(segmentPosition / vec2(4.3, 12.9));
+
+            float fieldDistance = abs(segmentPosition.x) - roadHalfWidth;
+            if (fieldDistance > 0.0) {
+                float fieldFactor = (1.0 + 0.2 * (wearNoise - mod(wearNoise, 0.5))) * 10.0 / (10.0 + fieldDistance);
+                gl_FragColor = vec4(vec3(0.08, 0.08, 0.08) * fieldFactor, 1.0);
                 return;
             }
 
             vec2 asphaltPos = segmentPosition * vec2(20.0, 10.0);
 
-            float wearNoise = cnoise2(segmentPosition / vec2(4.3, 12.9));
             float asphaltNoise = cnoise2(vec2(
                 asphaltPos.x - mod(asphaltPos.x, 1.5),
                 asphaltPos.y - mod(asphaltPos.y, 1.5)
