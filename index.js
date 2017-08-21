@@ -151,7 +151,6 @@ roadCmd = regl({
     },
 
     uniforms: {
-        aspectRatio: regl.prop('aspectRatio'),
         segmentLength: regl.prop('segmentLength'),
         segmentCurvature: regl.prop('segmentCurvature'),
         segmentOffset: regl.prop('segmentOffset'),
@@ -301,7 +300,6 @@ const timer = new Timer(STEP, 0, function () {
         segmentCurvature
     ) {
         roadCmd({
-            aspectRatio: aspectRatio,
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
             segmentCurvature: segmentCurvature,
