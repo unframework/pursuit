@@ -247,7 +247,7 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
     });
 }
 
-postCmd = roadItemCommand(6, `
+postCmd = roadItemCommand(3, `
     vec3 getItemCenter() {
         float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
@@ -273,6 +273,38 @@ postCmd = roadItemCommand(6, `
                 0.6,
                 0.65,
                 0.7
+            ),
+            1.0
+        );
+    }
+`);
+
+postLightCmd = roadItemCommand(3, `
+    vec3 getItemCenter() {
+        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
+
+        return vec3(
+            roadHalfWidth - 0.9,
+            0,
+            6.75
+        );
+    }
+
+    vec2 getItemSize() {
+        return vec2(
+            1.5,
+            0.25
+        );
+    }
+`, `
+    void main() {
+        float fade = facePosition.y * 0.5 + 0.5;
+
+        gl_FragColor = vec4(
+            (1.0 - fade * 0.8) * vec3(
+                0.8,
+                0.85,
+                0.9
             ),
             1.0
         );
@@ -431,6 +463,25 @@ const timer = new Timer(STEP, 0, function () {
         segment
     ) {
         postCmd({
+            segmentOffset: segmentOffset,
+            segmentLength: segmentLength,
+            segmentCurvature: segmentCurvature,
+            segmentX: segmentX,
+            segmentDX: segmentDX,
+            segmentFullLength: segment.length,
+            camera: camera
+        });
+    });
+
+    renderSegments(segmentList, function (
+        segmentOffset,
+        segmentLength,
+        segmentX,
+        segmentDX,
+        segmentCurvature,
+        segment
+    ) {
+        postLightCmd({
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
             segmentCurvature: segmentCurvature,
