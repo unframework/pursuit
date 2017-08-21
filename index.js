@@ -166,6 +166,8 @@ roadCmd = regl({
     count: 4
 });
 
+const POST_COUNT = 6;
+
 postCmd = regl({
     vert: glsl`
         precision mediump float;
@@ -178,16 +180,17 @@ postCmd = regl({
         uniform float segmentX;
         uniform float segmentDX;
         uniform float segmentCurvature;
+        uniform float segmentFullLength;
         uniform mat4 camera;
 
-        attribute vec2 position;
+        attribute vec3 position;
 
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
             vec2 viewPlanePosition = vec2(
                 roadHalfWidth + 1.0 + position.x * 0.2,
-                segmentOffset
+                segmentOffset + segmentLength - segmentFullLength * position.z
             );
 
             vec2 segmentPosition = vec2(
@@ -218,10 +221,15 @@ postCmd = regl({
 
     attributes: {
         position: regl.buffer([
-            [ -1, 0 ],
-            [ 1, 0 ],
-            [ 1,  1 ],
-            [ -1, 1 ]
+            Array.apply(null, new Array(POST_COUNT)).map((noop, index) => [
+                [ -1, 0, index / POST_COUNT ],
+                [ 1, 0, index / POST_COUNT ],
+                [ -1, 1, index / POST_COUNT ],
+                [ 1,  1, index / POST_COUNT ],
+
+                [ 1,  1, index / POST_COUNT ],
+                [ -1, 0, (index + 1) / POST_COUNT ]
+            ])
         ])
     },
 
@@ -231,11 +239,12 @@ postCmd = regl({
         segmentX: regl.prop('segmentX'),
         segmentDX: regl.prop('segmentDX'),
         segmentCurvature: regl.prop('segmentCurvature'),
+        segmentFullLength: regl.prop('segmentFullLength'),
         camera: regl.prop('camera')
     },
 
-    primitive: 'triangle fan',
-    count: 4
+    primitive: 'triangle strip',
+    count: POST_COUNT * 6
 });
 
 fogCmd = regl({
@@ -306,7 +315,8 @@ function renderSegments(segmentList, cb) {
             segment.end - segmentOffset,
             x,
             dx,
-            segment.curvature
+            segment.curvature,
+            segment
         );
 
         const depth = 0.01 * (segment.end - segmentOffset);
@@ -389,7 +399,8 @@ const timer = new Timer(STEP, 0, function () {
         segmentLength,
         segmentX,
         segmentDX,
-        segmentCurvature
+        segmentCurvature,
+        segment
     ) {
         postCmd({
             segmentOffset: segmentOffset,
@@ -397,6 +408,7 @@ const timer = new Timer(STEP, 0, function () {
             segmentCurvature: segmentCurvature,
             segmentX: segmentX,
             segmentDX: segmentDX,
+            segmentFullLength: segment.length,
             camera: camera
         });
     });
