@@ -119,8 +119,8 @@ roadCmd = regl({
 
             float wearNoise = cnoise2(segmentPosition / vec2(4.3, 12.9));
             float asphaltNoise = cnoise2(vec2(
-                asphaltPos.x - mod(asphaltPos.x, 0.5),
-                asphaltPos.y - mod(asphaltPos.y, 0.5)
+                asphaltPos.x - mod(asphaltPos.x, 1.5),
+                asphaltPos.y - mod(asphaltPos.y, 1.5)
             ));
 
             float asphaltSpec = clamp((asphaltNoise - 0.8) / 0.2, 0.0, 1.0);
@@ -137,8 +137,8 @@ roadCmd = regl({
             float notMarker = notMidLane * notEdgeLane;
 
             vec3 color = notMarker < 1.0
-                ? vec3(0.35, 0.35, 0.37) * (1.0 - asphaltCrack * 0.5)
-                : vec3(0.16, 0.16, 0.18) * (1.0 - asphaltCrack * 0.3 + asphaltSpec * 0.8);
+                ? vec3(0.45, 0.45, 0.47) * (1.0 - asphaltCrack * 0.9)
+                : vec3(0.16, 0.16, 0.18) * (1.0 - asphaltCrack * 0.8 + asphaltSpec * 1.2);
 
             gl_FragColor = vec4(color * (0.88 + wearNoise * 0.12), 1.0);
         }
