@@ -1,11 +1,8 @@
 
-vec2 computeSegmentPosition(vec2 viewPlanePosition, float startOffset, float segmentCurvature, float segmentX, float segmentDX) {
-    float viewDepth = 0.01 * (viewPlanePosition.y - startOffset);
+float computeSegmentX(float viewPlaneOffset, float startOffset, float segmentCurvature, float segmentX, float segmentDX) {
+    float viewDepth = 0.01 * (viewPlaneOffset - startOffset);
 
-    return vec2(
-        viewPlanePosition.x + segmentCurvature * viewDepth * viewDepth + segmentDX * viewDepth + segmentX,
-        viewPlanePosition.y
-    );
+    return segmentCurvature * viewDepth * viewDepth + segmentDX * viewDepth + segmentX;
 }
 
-#pragma glslify: export(computeSegmentPosition)
+#pragma glslify: export(computeSegmentX)

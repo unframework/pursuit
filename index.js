@@ -93,7 +93,7 @@ roadCmd = regl({
         #pragma glslify: roadSettings = require('./roadSettings')
         #pragma glslify: dither = require('glsl-dither/8x8')
         #pragma glslify: cnoise2 = require('glsl-noise/classic/2d')
-        #pragma glslify: computeSegmentPosition = require('./segment')
+        #pragma glslify: computeSegmentX = require('./segment')
 
         uniform float segmentOffset;
         uniform float segmentCurvature;
@@ -105,7 +105,10 @@ roadCmd = regl({
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
-            vec2 segmentPosition = computeSegmentPosition(viewPlanePosition, segmentOffset, segmentCurvature, segmentX, segmentDX);
+            vec2 segmentPosition = vec2(
+                viewPlanePosition.x - computeSegmentX(viewPlanePosition.y, segmentOffset, segmentCurvature, segmentX, segmentDX),
+                viewPlanePosition.y
+            );
 
             if (roadHalfWidth < abs(segmentPosition.x)) {
                 discard;
@@ -156,6 +159,78 @@ roadCmd = regl({
         segmentOffset: regl.prop('segmentOffset'),
         segmentX: regl.prop('segmentX'),
         segmentDX: regl.prop('segmentDX'),
+        camera: regl.prop('camera')
+    },
+
+    primitive: 'triangle fan',
+    count: 4
+});
+
+postCmd = regl({
+    vert: glsl`
+        precision mediump float;
+
+        #pragma glslify: roadSettings = require('./roadSettings')
+        #pragma glslify: computeSegmentX = require('./segment')
+
+        uniform float segmentOffset;
+        uniform float segmentLength;
+        uniform float segmentX;
+        uniform float segmentDX;
+        uniform float segmentCurvature;
+        uniform mat4 camera;
+
+        attribute vec2 position;
+
+        void main() {
+            float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
+
+            vec2 viewPlanePosition = vec2(
+                roadHalfWidth + 1.0 + position.x * 0.2,
+                segmentOffset
+            );
+
+            vec2 segmentPosition = vec2(
+                viewPlanePosition.x + computeSegmentX(viewPlanePosition.y, segmentOffset, segmentCurvature, segmentX, segmentDX),
+                viewPlanePosition.y
+            );
+
+            gl_Position = camera * vec4(
+                segmentPosition,
+                position.y * 6.5,
+                1.0
+            );
+        }
+    `,
+
+    frag: glsl`
+        precision mediump float;
+
+        void main() {
+            gl_FragColor = vec4(
+                0.5,
+                0.7,
+                0.7,
+                1.0
+            );
+        }
+    `,
+
+    attributes: {
+        position: regl.buffer([
+            [ -1, 0 ],
+            [ 1, 0 ],
+            [ 1,  1 ],
+            [ -1, 1 ]
+        ])
+    },
+
+    uniforms: {
+        segmentOffset: regl.prop('segmentOffset'),
+        segmentLength: regl.prop('segmentLength'),
+        segmentX: regl.prop('segmentX'),
+        segmentDX: regl.prop('segmentDX'),
+        segmentCurvature: regl.prop('segmentCurvature'),
         camera: regl.prop('camera')
     },
 
@@ -300,6 +375,23 @@ const timer = new Timer(STEP, 0, function () {
         segmentCurvature
     ) {
         roadCmd({
+            segmentOffset: segmentOffset,
+            segmentLength: segmentLength,
+            segmentCurvature: segmentCurvature,
+            segmentX: segmentX,
+            segmentDX: segmentDX,
+            camera: camera
+        });
+    });
+
+    renderSegments(segmentList, function (
+        segmentOffset,
+        segmentLength,
+        segmentX,
+        segmentDX,
+        segmentCurvature
+    ) {
+        postCmd({
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
             segmentCurvature: segmentCurvature,
