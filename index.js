@@ -193,20 +193,14 @@ postCmd = regl({
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
-            vec2 viewPlanePosition = vec2(
-                roadHalfWidth + 1.0 + position.x * 0.1,
-                segmentOffset + segmentLength - segmentFullLength * position.z
-            );
-
-            vec2 segmentPosition = vec2(
-                viewPlanePosition.x + computeSegmentX(viewPlanePosition.y, segmentOffset, segmentCurvature, segmentX, segmentDX),
-                viewPlanePosition.y
-            );
+            float viewPlanePositionY = segmentOffset + segmentLength - segmentFullLength * position.z;
+            float xOffset = computeSegmentX(viewPlanePositionY, segmentOffset, segmentCurvature, segmentX, segmentDX);
 
             facePosition = position.xy;
 
             gl_Position = camera * vec4(
-                segmentPosition,
+                roadHalfWidth + 1.0 + position.x * 0.1 + xOffset,
+                viewPlanePositionY,
                 position.y * 6.5,
                 1.0
             );
