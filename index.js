@@ -65,7 +65,7 @@ roadCmd = regl({
 
             // ensure vertices are not "behind" camera, otherwise perspective correction gets busted
             float roadY = max(
-                viewOffset + 0.1,
+                viewOffset + 3.0,
                 position.y * segmentLength + segmentOffset
             );
 
@@ -83,8 +83,9 @@ roadCmd = regl({
                 1.0
             );
 
+            // @todo horizontal camera movement is totally busted
             roadPosition = vec2(
-                gl_Position.w * roadHalfWidth / (edgePosition.x - gl_Position.x) - gl_Position.x / gl_Position.z,
+                gl_Position.w * roadHalfWidth / (edgePosition.x - gl_Position.x),
                 roadY
             );
 
@@ -247,7 +248,8 @@ const timer = new Timer(STEP, 0, function () {
     mat4.rotateX(camera, camera, -Math.PI / 2);
 
     // camera shake and offset
-    vec3.set(cameraPosition, 0.02 * Math.sin(now * 3.43), -offset, -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
+    // @todo re-add horizontal shake
+    vec3.set(cameraPosition, 0, -offset, -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
     mat4.translate(camera, camera, cameraPosition);
 
     fogCmd({
