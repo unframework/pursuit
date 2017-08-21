@@ -53,7 +53,6 @@ roadCmd = regl({
 
         uniform mat4 camera;
         uniform float viewOffset;
-        uniform float segmentRadius;
         uniform float segmentLength;
         uniform float segmentOffset;
         attribute vec2 position;
@@ -109,7 +108,7 @@ roadCmd = regl({
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
-            vec2 segmentPosition = computeSegmentPosition(roadPosition, viewOffset, 10.0);
+            vec2 segmentPosition = computeSegmentPosition(roadPosition, viewOffset, 0.0);
 
             if (roadHalfWidth < abs(segmentPosition.x)) {
                 discard;
@@ -157,7 +156,6 @@ roadCmd = regl({
     uniforms: {
         aspectRatio: regl.prop('aspectRatio'),
         viewOffset: regl.prop('viewOffset'),
-        segmentRadius: regl.prop('segmentRadius'),
         segmentLength: regl.prop('segmentLength'),
         segmentOffset: regl.prop('segmentOffset'),
         camera: regl.prop('camera')
@@ -228,20 +226,33 @@ const camera = mat4.create();
 const STEP = 1 / 60.0;
 
 const CAMERA_HEIGHT = 2.5;
-const DRAW_CYCLE = 300;
 const DRAW_DISTANCE = 400;
 
 let offset = 0;
 const speed = 90 / 3.6; // km/h to m/s
 
+const segmentList = [];
+
 const timer = new Timer(STEP, 0, function () {
     offset += speed * STEP;
+
+    const totalEnd = segmentList.length > 0
+        ? segmentList[segmentList.length - 1].end
+        : 0;
+
+    if (totalEnd < offset + DRAW_DISTANCE) {
+        const length = 30;
+
+        segmentList.push({
+            length: length,
+            end: totalEnd + length + 1
+        });
+    }
+
+    if (segmentList.length > 0 && segmentList[0].end < offset + 3.1) {
+        segmentList.shift();
+    }
 }, function (now) {
-    segmentRadius = DRAW_CYCLE * 4;
-    segmentLength = DRAW_CYCLE * 2;
-
-    camAngle = offset / segmentRadius;
-
     mat4.perspective(camera, 0.6, canvas.width / canvas.height, 1, DRAW_DISTANCE);
 
     // pitch
@@ -256,12 +267,13 @@ const timer = new Timer(STEP, 0, function () {
         time: now
     });
 
-    roadCmd({
-        aspectRatio: aspectRatio,
-        viewOffset: offset,
-        segmentRadius: segmentRadius,
-        segmentLength: segmentLength,
-        segmentOffset: offset - offset % DRAW_CYCLE,
-        camera: camera
-    });
+    segmentList.forEach(function (segment) {
+        roadCmd({
+            aspectRatio: aspectRatio,
+            viewOffset: offset,
+            segmentLength: segment.length,
+            segmentOffset: segment.end - segment.length,
+            camera: camera
+        });
+    })
 });
