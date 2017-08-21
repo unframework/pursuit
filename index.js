@@ -56,7 +56,7 @@ roadCmd = regl({
         uniform float segmentLength;
         attribute vec2 position;
 
-        varying vec2 roadPosition;
+        varying vec2 viewPlanePosition;
 
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
@@ -77,7 +77,7 @@ roadCmd = regl({
             );
 
             // @todo horizontal camera movement is totally busted
-            roadPosition = vec2(
+            viewPlanePosition = vec2(
                 gl_Position.w * roadHalfWidth / (edgePosition.x - gl_Position.x),
                 roadY
             );
@@ -100,12 +100,12 @@ roadCmd = regl({
         uniform float segmentX;
         uniform float segmentDX;
 
-        varying vec2 roadPosition;
+        varying vec2 viewPlanePosition;
 
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
-            vec2 segmentPosition = computeSegmentPosition(roadPosition, segmentOffset, segmentCurvature, segmentX, segmentDX);
+            vec2 segmentPosition = computeSegmentPosition(viewPlanePosition, segmentOffset, segmentCurvature, segmentX, segmentDX);
 
             if (roadHalfWidth < abs(segmentPosition.x)) {
                 discard;
