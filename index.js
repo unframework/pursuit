@@ -102,13 +102,21 @@ roadCmd = regl({
         #pragma glslify: computeSegmentPosition = require('./segment')
 
         uniform float viewOffset;
+        uniform float segmentOffset;
+        uniform float segmentCurvature;
+        uniform float segmentX;
+        uniform float segmentDX;
 
         varying vec2 roadPosition;
 
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
+            float roadStart = max(
+                viewOffset + 3.0,
+                segmentOffset
+            );
 
-            vec2 segmentPosition = computeSegmentPosition(roadPosition, viewOffset, 0.0);
+            vec2 segmentPosition = computeSegmentPosition(roadPosition, roadStart, segmentCurvature, segmentX, segmentDX);
 
             if (roadHalfWidth < abs(segmentPosition.x)) {
                 discard;
@@ -157,7 +165,10 @@ roadCmd = regl({
         aspectRatio: regl.prop('aspectRatio'),
         viewOffset: regl.prop('viewOffset'),
         segmentLength: regl.prop('segmentLength'),
+        segmentCurvature: regl.prop('segmentCurvature'),
         segmentOffset: regl.prop('segmentOffset'),
+        segmentX: regl.prop('segmentX'),
+        segmentDX: regl.prop('segmentDX'),
         camera: regl.prop('camera')
     },
 
@@ -233,6 +244,8 @@ const speed = 90 / 3.6; // km/h to m/s
 
 const segmentList = [];
 
+let isLeft = true;
+
 const timer = new Timer(STEP, 0, function () {
     offset += speed * STEP;
 
@@ -241,12 +254,15 @@ const timer = new Timer(STEP, 0, function () {
         : 0;
 
     if (totalEnd < offset + DRAW_DISTANCE) {
-        const length = 30;
+        const length = 300;
 
         segmentList.push({
             length: length,
-            end: totalEnd + length + 1
+            curvature: isLeft ? 5.0 : -5.0,
+            end: totalEnd + length
         });
+
+        isLeft = !isLeft;
     }
 
     if (segmentList.length > 0 && segmentList[0].end < offset + 3.1) {
@@ -267,13 +283,22 @@ const timer = new Timer(STEP, 0, function () {
         time: now
     });
 
+    let x = 0;
+    let dx = 0;
     segmentList.forEach(function (segment) {
         roadCmd({
             aspectRatio: aspectRatio,
             viewOffset: offset,
             segmentLength: segment.length,
+            segmentCurvature: segment.curvature,
             segmentOffset: segment.end - segment.length,
+            segmentX: x,
+            segmentDX: dx,
             camera: camera
         });
+
+        const depth = 0.01 * Math.min(segment.length, segment.end - (offset + 3.0));
+        x += segment.curvature * depth * depth + dx * depth;
+        dx += 2 * segment.curvature * depth;
     })
 });
