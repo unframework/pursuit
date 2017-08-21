@@ -52,21 +52,15 @@ roadCmd = regl({
         #pragma glslify: roadSettings = require('./roadSettings')
 
         uniform mat4 camera;
-        uniform float viewOffset;
-        uniform float segmentLength;
         uniform float segmentOffset;
+        uniform float segmentLength;
         attribute vec2 position;
 
         varying vec2 roadPosition;
 
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
-
-            // ensure vertices are not "behind" camera, otherwise perspective correction gets busted
-            float roadY = max(
-                viewOffset + 3.0,
-                position.y * segmentLength + segmentOffset
-            );
+            float roadY = position.y * segmentLength + segmentOffset;
 
             gl_Position = camera * vec4(
                 0,
@@ -101,7 +95,6 @@ roadCmd = regl({
         #pragma glslify: cnoise2 = require('glsl-noise/classic/2d')
         #pragma glslify: computeSegmentPosition = require('./segment')
 
-        uniform float viewOffset;
         uniform float segmentOffset;
         uniform float segmentCurvature;
         uniform float segmentX;
@@ -111,12 +104,8 @@ roadCmd = regl({
 
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
-            float roadStart = max(
-                viewOffset + 3.0,
-                segmentOffset
-            );
 
-            vec2 segmentPosition = computeSegmentPosition(roadPosition, roadStart, segmentCurvature, segmentX, segmentDX);
+            vec2 segmentPosition = computeSegmentPosition(roadPosition, segmentOffset, segmentCurvature, segmentX, segmentDX);
 
             if (roadHalfWidth < abs(segmentPosition.x)) {
                 discard;
@@ -163,7 +152,6 @@ roadCmd = regl({
 
     uniforms: {
         aspectRatio: regl.prop('aspectRatio'),
-        viewOffset: regl.prop('viewOffset'),
         segmentLength: regl.prop('segmentLength'),
         segmentCurvature: regl.prop('segmentCurvature'),
         segmentOffset: regl.prop('segmentOffset'),
@@ -286,18 +274,20 @@ const timer = new Timer(STEP, 0, function () {
     let x = 0;
     let dx = 0;
     segmentList.forEach(function (segment) {
+        // ensure segment vertices are not "behind" camera, otherwise perspective correction gets busted
+        const segmentOffset = Math.max(offset + 3, segment.end - segment.length);
+
         roadCmd({
             aspectRatio: aspectRatio,
-            viewOffset: offset,
-            segmentLength: segment.length,
+            segmentOffset: segmentOffset,
+            segmentLength: segment.end - segmentOffset,
             segmentCurvature: segment.curvature,
-            segmentOffset: segment.end - segment.length,
             segmentX: x,
             segmentDX: dx,
             camera: camera
         });
 
-        const depth = 0.01 * Math.min(segment.length, segment.end - (offset + 3.0));
+        const depth = 0.01 * (segment.end - segmentOffset);
         x += segment.curvature * depth * depth + dx * depth;
         dx += 2 * segment.curvature * depth;
     })
