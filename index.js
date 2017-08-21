@@ -346,8 +346,6 @@ const speed = 90 / 3.6; // km/h to m/s
 
 const segmentList = [];
 
-let isLeft = true;
-
 const timer = new Timer(STEP, 0, function () {
     offset += speed * STEP;
 
@@ -360,11 +358,9 @@ const timer = new Timer(STEP, 0, function () {
 
         segmentList.push({
             length: length,
-            curvature: isLeft ? 5.0 : -5.0,
+            curvature: 8 * (Math.random() * 2 - 1),
             end: totalEnd + length
         });
-
-        isLeft = !isLeft;
     }
 
     if (segmentList.length > 0 && segmentList[0].end < offset + 3.1) {
