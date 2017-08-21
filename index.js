@@ -185,11 +185,13 @@ postCmd = regl({
 
         attribute vec3 position;
 
+        varying vec2 facePosition;
+
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
             vec2 viewPlanePosition = vec2(
-                roadHalfWidth + 1.0 + position.x * 0.2,
+                roadHalfWidth + 1.0 + position.x * 0.1,
                 segmentOffset + segmentLength - segmentFullLength * position.z
             );
 
@@ -197,6 +199,8 @@ postCmd = regl({
                 viewPlanePosition.x + computeSegmentX(viewPlanePosition.y, segmentOffset, segmentCurvature, segmentX, segmentDX),
                 viewPlanePosition.y
             );
+
+            facePosition = position.xy;
 
             gl_Position = camera * vec4(
                 segmentPosition,
@@ -209,11 +213,15 @@ postCmd = regl({
     frag: glsl`
         precision mediump float;
 
+        varying vec2 facePosition;
+
         void main() {
             gl_FragColor = vec4(
-                0.5,
-                0.7,
-                0.7,
+                (0.1 + facePosition.y * 0.9) * vec3(
+                    0.6,
+                    0.65,
+                    0.7
+                ),
                 1.0
             );
         }
