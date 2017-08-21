@@ -219,6 +219,28 @@ fogCmd = regl({
     count: 4
 });
 
+function renderSegments(segmentList, cb) {
+    let x = 0;
+    let dx = 0;
+
+    segmentList.forEach(function (segment) {
+        // ensure segment vertices are not "behind" camera, otherwise perspective correction gets busted
+        const segmentOffset = Math.max(offset + 3, segment.end - segment.length);
+
+        cb(
+            segmentOffset,
+            segment.end - segmentOffset,
+            x,
+            dx,
+            segment.curvature
+        );
+
+        const depth = 0.01 * (segment.end - segmentOffset);
+        x += segment.curvature * depth * depth + dx * depth;
+        dx += 2 * segment.curvature * depth;
+    });
+}
+
 const cameraPosition = vec3.create();
 const camera = mat4.create();
 
@@ -271,24 +293,21 @@ const timer = new Timer(STEP, 0, function () {
         time: now
     });
 
-    let x = 0;
-    let dx = 0;
-    segmentList.forEach(function (segment) {
-        // ensure segment vertices are not "behind" camera, otherwise perspective correction gets busted
-        const segmentOffset = Math.max(offset + 3, segment.end - segment.length);
-
+    renderSegments(segmentList, function (
+        segmentOffset,
+        segmentLength,
+        segmentX,
+        segmentDX,
+        segmentCurvature
+    ) {
         roadCmd({
             aspectRatio: aspectRatio,
             segmentOffset: segmentOffset,
-            segmentLength: segment.end - segmentOffset,
-            segmentCurvature: segment.curvature,
-            segmentX: x,
-            segmentDX: dx,
+            segmentLength: segmentLength,
+            segmentCurvature: segmentCurvature,
+            segmentX: segmentX,
+            segmentDX: segmentDX,
             camera: camera
         });
-
-        const depth = 0.01 * (segment.end - segmentOffset);
-        x += segment.curvature * depth * depth + dx * depth;
-        dx += 2 * segment.curvature * depth;
-    })
+    });
 });
