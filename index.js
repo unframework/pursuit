@@ -110,6 +110,8 @@ roadCmd = regl({
                 viewPlanePosition.y
             );
 
+            float lightPos = 1.5 - 0.5 / (0.5 + abs((mod(segmentPosition.y, 100.0) / 100.0) - 0.5));
+
             float wearNoise = cnoise2(segmentPosition / vec2(4.3, 12.9));
 
             float fieldDistance = abs(segmentPosition.x) - roadHalfWidth;
@@ -140,8 +142,8 @@ roadCmd = regl({
             float notMarker = notMidLane * notEdgeLane;
 
             vec3 color = notMarker < 1.0
-                ? vec3(0.45, 0.45, 0.47) * (1.0 - asphaltCrack * 0.9)
-                : vec3(0.16, 0.16, 0.18) * (1.0 - asphaltCrack * 0.8 + asphaltSpec * 1.2);
+                ? vec3(0.45, 0.45, 0.47) * (1.0 - asphaltCrack * 0.9) * (0.1 + lightPos * 0.9)
+                : vec3(0.16, 0.16, 0.18) * (1.0 - asphaltCrack * 0.8 + asphaltSpec * 1.2) * (0.2 + lightPos * 0.8);
 
             gl_FragColor = vec4(color * (0.88 + wearNoise * 0.12), 1.0);
         }
