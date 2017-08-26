@@ -4,6 +4,13 @@
 #define roadMarkerWidth 0.25
 #define roadLaneMarkerLength 4.5
 
+#define postWidth 0.45
+#define postHeight 7.5
+#define postOffset 7.0
+#define postLightWidth 4.5
+#define postLightHeight 2.1
+#define postLightColor vec3(0.9, 0.95, 0.98)
+
 void roadSettings() {}
 
 #pragma glslify: export(roadSettings)

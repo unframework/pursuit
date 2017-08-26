@@ -213,6 +213,8 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
         frag: glsl`
             precision mediump float;
 
+            #pragma glslify: roadSettings = require('./roadSettings')
+
             varying vec2 facePosition;
 
             ${itemFrag}
@@ -252,28 +254,28 @@ postCmd = roadItemCommand(3, `
         float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
         return vec3(
-            roadHalfWidth + 1.0,
+            postOffset,
             0,
-            3.25
+            postHeight * 0.5
         );
     }
 
     vec2 getItemSize() {
         return vec2(
-            0.1,
-            3.25
-        );
+            postWidth,
+            postHeight
+        ) * 0.5;
     }
 `, `
     void main() {
-        float fade = facePosition.y * 0.5 + 0.5;
+        vec2 relpos = (facePosition * vec2(0.5, 0.5) + vec2(0.5, 0.5));
+        vec2 pos = relpos * vec2(postWidth, postHeight);
+        pos -= mod(pos, 0.15);
+
+        vec2 fadePos = pos / vec2(postWidth, postHeight);
 
         gl_FragColor = vec4(
-            (0.1 + fade * 0.9) * vec3(
-                0.6,
-                0.65,
-                0.7
-            ),
+            (0.2 * (0.35 + fadePos.y * 0.65) + 0.12 * (1.0 - fadePos.x) * fadePos.y) * postLightColor,
             1.0
         );
     }
@@ -284,30 +286,45 @@ postLightCmd = roadItemCommand(3, `
         float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
         return vec3(
-            roadHalfWidth - 0.9,
+            postOffset + (postWidth - postLightWidth) * 0.5,
             0,
-            6.75
+            postHeight + 1.0
         );
     }
 
     vec2 getItemSize() {
         return vec2(
-            1.5,
-            0.25
+            postLightWidth * 0.5,
+            1.0
         );
     }
 `, `
     void main() {
-        float fade = facePosition.y * 0.5 + 0.5;
+        vec2 relpos = (facePosition * vec2(0.5, 0.5) + vec2(0.5, 0.5));
+        vec2 pos = relpos * vec2(postLightWidth, postLightHeight);
+        pos -= mod(pos, 0.15);
+
+        float fade = 1.0 - clamp((pos.x - 1.0) / (postLightWidth - 1.0), 0.0, 1.0);
 
         gl_FragColor = vec4(
-            (1.0 - fade * 0.8) * vec3(
-                0.8,
-                0.85,
-                0.9
-            ),
+            (0.2 + fade * 0.8) * postLightColor,
             1.0
         );
+
+        if (pos.x < postLightWidth - postLightHeight) {
+            if (pos.y < postLightHeight - postWidth) {
+                discard;
+            }
+        } else {
+            vec2 radial = vec2(pos.x - (postLightWidth - postLightHeight), pos.y);
+            float radiusSq = dot(radial, radial);
+
+            if (radiusSq > postLightHeight * postLightHeight) {
+                discard;
+            } else if (radiusSq < (postLightHeight - postWidth) * (postLightHeight - postWidth)) {
+                discard;
+            }
+        }
     }
 `);
 
