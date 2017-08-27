@@ -289,9 +289,13 @@ postCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
         vec2 fadePos = pos / vec2(postWidth, postHeight);
 
         gl_FragColor = vec4(
-            (0.2 * (0.35 + fadePos.y * 0.65) + 0.12 * (1.0 - fadePos.x) * fadePos.y) * postLightColor,
+            (0.2 * (0.15 + fadePos.y * 0.85)) * postLightColor,
             1.0
         );
+
+        if (pos.x > postWidth) {
+            discard;
+        }
     }
 `);
 
@@ -318,10 +322,25 @@ postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
         vec2 pos = relpos * vec2(postLightWidth, postLightHeight);
         pos -= mod(pos, 0.15);
 
-        float fade = 1.0 - clamp((pos.x - 1.0) / (postLightWidth - 1.0), 0.0, 1.0);
+        float postLightInner = postLightHeight - postWidth - 0.05;
+
+        if (pos.x < 2.4) {
+            gl_FragColor = vec4(
+                postLightColor,
+                1.0
+            );
+
+            if (pos.y < postLightHeight - 0.3) {
+                discard;
+            }
+
+            return;
+        }
+
+        float fade = (postLightWidth - pos.x - 0.15) / (postLightWidth - 2.4);
 
         gl_FragColor = vec4(
-            (0.2 + fade * 0.8) * postLightColor,
+            (0.2 - fade * 0.05) * postLightColor,
             1.0
         );
 
@@ -332,10 +351,11 @@ postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
         } else {
             vec2 radial = vec2(pos.x - (postLightWidth - postLightHeight), pos.y);
             float radiusSq = dot(radial, radial);
+            float postLightInner = postLightHeight - postWidth - 0.05;
 
             if (radiusSq > postLightHeight * postLightHeight) {
                 discard;
-            } else if (radiusSq < (postLightHeight - postWidth) * (postLightHeight - postWidth)) {
+            } else if (radiusSq < postLightInner * postLightInner) {
                 discard;
             }
         }
@@ -441,7 +461,7 @@ const timer = new Timer(STEP, 0, function () {
         : 0;
 
     if (totalEnd < offset + DRAW_DISTANCE) {
-        const length = 300;
+        const length = 150 + Math.floor(Math.random() * 8) * 50;
 
         segmentList.push({
             length: length,
