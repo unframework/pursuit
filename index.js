@@ -270,14 +270,14 @@ postCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
         return vec3(
             postOffset,
             0,
-            postHeight * 0.5
+            (postHeight - postRadius) * 0.5
         );
     }
 
     vec2 getItemSize() {
         return vec2(
             postWidth,
-            postHeight
+            postHeight - postRadius
         ) * 0.5;
     }
 `, `
@@ -299,66 +299,76 @@ postCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     }
 `);
 
-postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
-    vec3 getItemCenter() {
-        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
-
-        return vec3(
-            postOffset + (postWidth - postLightWidth) * 0.5,
-            0,
-            postHeight + 1.0
-        );
-    }
-
+postTopCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     vec2 getItemSize() {
         return vec2(
-            postLightWidth * 0.5,
-            1.0
+            postRadius + postStem,
+            postRadius
+        ) * 0.5;
+    }
+
+    vec3 getItemCenter() {
+        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
+        vec2 size = getItemSize();
+
+        return vec3(
+            postOffset + postWidth * 0.5,
+            0,
+            postHeight
+        ) - vec3(
+            size.x,
+            0,
+            size.y
         );
     }
 `, `
     void main() {
         vec2 relpos = (facePosition * vec2(0.5, 0.5) + vec2(0.5, 0.5));
-        vec2 pos = relpos * vec2(postLightWidth, postLightHeight);
+        vec2 pos = relpos * vec2(postRadius + postStem, postRadius);
         pos -= mod(pos, 0.15);
 
-        float postLightInner = postLightHeight - postWidth - 0.05;
-
-        if (pos.x < 2.4) {
-            gl_FragColor = vec4(
-                postLightColor,
-                1.0
-            );
-
-            if (pos.y < postLightHeight - 0.3) {
-                discard;
-            }
-
-            return;
-        }
-
-        float fade = (postLightWidth - pos.x - 0.15) / (postLightWidth - 2.4);
+        float fade = 1.0 - (pos.x - 0.15) / (postRadius + postStem);
 
         gl_FragColor = vec4(
             (0.2 - fade * 0.05) * postLightColor,
             1.0
         );
 
-        if (pos.x < postLightWidth - postLightHeight) {
-            if (pos.y < postLightHeight - postWidth) {
-                discard;
-            }
-        } else {
-            vec2 radial = vec2(pos.x - (postLightWidth - postLightHeight), pos.y);
-            float radiusSq = dot(radial, radial);
-            float postLightInner = postLightHeight - postWidth - 0.05;
+        vec2 radial = vec2(max(0.0, pos.x - postStem), pos.y);
+        float radiusSq = dot(radial, radial);
+        float postLightInner = postRadius - postWidth - 0.05;
 
-            if (radiusSq > postLightHeight * postLightHeight) {
-                discard;
-            } else if (radiusSq < postLightInner * postLightInner) {
-                discard;
-            }
+        if (radiusSq > postRadius * postRadius) {
+            discard;
+        } else if (radiusSq < postLightInner * postLightInner) {
+            discard;
         }
+    }
+`);
+
+postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
+    vec3 getItemCenter() {
+        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
+
+        return vec3(
+            postOffset + postWidth * 0.5 - postRadius - postStem - postLightWidth * 0.5,
+            0,
+            postHeight - postLightHeight * 0.5
+        );
+    }
+
+    vec2 getItemSize() {
+        return vec2(
+            postLightWidth,
+            postLightHeight
+        ) * 0.5;
+    }
+`, `
+    void main() {
+        gl_FragColor = vec4(
+            postLightColor,
+            1.0
+        );
     }
 `);
 
@@ -540,6 +550,27 @@ const timer = new Timer(STEP, 0, function () {
         i
     ) {
         postCmd({
+            segmentOffset: segmentOffset,
+            segmentLength: segmentLength,
+            segmentCurvature: segmentCurvature,
+            segmentX: segmentX,
+            segmentDX: segmentDX,
+            segmentFullLength: segment.length,
+            batchIndex: i,
+            camera: camera
+        });
+    });
+
+    renderLights(segmentList, function (
+        segmentOffset,
+        segmentLength,
+        segmentX,
+        segmentDX,
+        segmentCurvature,
+        segment,
+        i
+    ) {
+        postTopCmd({
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
             segmentCurvature: segmentCurvature,
