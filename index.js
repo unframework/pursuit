@@ -112,7 +112,7 @@ roadCmd = regl({
                 viewPlanePosition.y
             );
 
-            float lightPos = 1.5 - 0.5 / (0.5 + abs((mod(segmentPosition.y, 100.0) / 100.0) - 0.5));
+            float lightPos = 1.5 - 0.5 / (0.5 + abs((mod(segmentPosition.y - lightOffset, lightDistance) / lightDistance) - 0.5));
 
             float wearNoise = cnoise2(segmentPosition / vec2(4.3, 12.9));
 
@@ -187,6 +187,7 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             uniform float segmentDX;
             uniform float segmentCurvature;
             uniform float segmentFullLength;
+            uniform int batchIndex;
             uniform mat4 camera;
 
             attribute vec3 position;
@@ -196,7 +197,10 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             ${itemPlacement}
 
             void main() {
-                float viewPlanePositionY = segmentOffset + segmentLength - segmentFullLength * position.z;
+                float segmentLightStart = floor((segmentOffset - lightOffset) / lightDistance + 0.5) * lightDistance + lightOffset;
+
+                float batchLength = 3.0 * lightDistance;
+                float viewPlanePositionY = segmentLightStart + (float(batchIndex) + position.z) * batchLength;
                 float xOffset = computeSegmentX(viewPlanePositionY, segmentOffset, segmentCurvature, segmentX, segmentDX);
 
                 facePosition = position.xy;
@@ -206,7 +210,7 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
                 gl_Position = camera * vec4(
                     getItemCenter() + vec3(
                         position.x * size.x + xOffset,
-                        viewPlanePositionY,
+                        viewPlanePositionY > segmentOffset + segmentLength ? -1.0 : viewPlanePositionY,
                         position.y * size.y
                     ),
                     1.0
@@ -245,6 +249,7 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             segmentDX: regl.prop('segmentDX'),
             segmentCurvature: regl.prop('segmentCurvature'),
             segmentFullLength: regl.prop('segmentFullLength'),
+            batchIndex: regl.prop('batchIndex'),
             camera: regl.prop('camera')
         },
 
@@ -487,15 +492,20 @@ const timer = new Timer(STEP, 0, function () {
         segmentCurvature,
         segment
     ) {
-        postCmd({
-            segmentOffset: segmentOffset,
-            segmentLength: segmentLength,
-            segmentCurvature: segmentCurvature,
-            segmentX: segmentX,
-            segmentDX: segmentDX,
-            segmentFullLength: segment.length,
-            camera: camera
-        });
+        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightDistance * 3));
+
+        for (let i = 0; i < count; i += 1) {
+            postCmd({
+                segmentOffset: segmentOffset,
+                segmentLength: segmentLength,
+                segmentCurvature: segmentCurvature,
+                segmentX: segmentX,
+                segmentDX: segmentDX,
+                segmentFullLength: segment.length,
+                batchIndex: i,
+                camera: camera
+            });
+        }
     });
 
     renderSegments(segmentList, function (
@@ -506,14 +516,19 @@ const timer = new Timer(STEP, 0, function () {
         segmentCurvature,
         segment
     ) {
-        postLightCmd({
-            segmentOffset: segmentOffset,
-            segmentLength: segmentLength,
-            segmentCurvature: segmentCurvature,
-            segmentX: segmentX,
-            segmentDX: segmentDX,
-            segmentFullLength: segment.length,
-            camera: camera
-        });
+        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightDistance * 3));
+
+        for (let i = 0; i < count; i += 1) {
+            postLightCmd({
+                segmentOffset: segmentOffset,
+                segmentLength: segmentLength,
+                segmentCurvature: segmentCurvature,
+                segmentX: segmentX,
+                segmentDX: segmentDX,
+                segmentFullLength: segment.length,
+                batchIndex: i,
+                camera: camera
+            });
+        }
     });
 });

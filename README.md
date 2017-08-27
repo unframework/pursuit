@@ -10,6 +10,8 @@ Physics is then only dependent on road topology. Biome definition code receives 
 
 Topology seems to make sense as series of circular arcs. Not entirely realistic, but definitely mimics games.
 
+Things like lights, etc, are part of a biome definition. So then they should be independent of a road segment.
+
 Another complication is lane count.
 
 ## To Do
