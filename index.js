@@ -1,3 +1,4 @@
+const fs = require('fs');
 const onecolor = require('onecolor');
 const vec2 = require('gl-matrix').vec2;
 const vec3 = require('gl-matrix').vec3;
@@ -6,6 +7,7 @@ const mat4 = require('gl-matrix').mat4;
 const glsl = require('glslify');
 
 const Timer = require('./Timer');
+const parseGLSLConstants = require('./parseGLSLConstants');
 
 document.title = 'Pursuit Hunter';
 
@@ -415,6 +417,10 @@ const STEP = 1 / 60.0;
 
 const CAMERA_HEIGHT = 2.5;
 const DRAW_DISTANCE = 400;
+
+const ROAD_SETTINGS = parseGLSLConstants(
+    fs.readFileSync(__dirname + '/roadSettings.glsl', 'utf8')
+);
 
 let offset = 0;
 const speed = 90 / 3.6; // km/h to m/s

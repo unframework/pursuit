@@ -8,12 +8,14 @@
   },
   "browserify": {
     "transform": [
-      "glslify"
+      "glslify",
+      "brfs"
     ]
   },
   "author": "Nick Matantsev <nick.matantsev@gmail.com>",
   "license": "ISC",
   "dependencies": {
+    "brfs": "^1.4.3",
     "browserify": "^14.4.0",
     "gl-matrix": "^2.4.0",
     "glsl-dither": "^1.0.1",
