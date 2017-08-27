@@ -201,9 +201,11 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             ${itemPlacement}
 
             void main() {
-                float segmentLightStart = floor((segmentOffset - lightOffset) / lightDistance + 0.5) * lightDistance + lightOffset;
+                float segmentStartItemIndex = ceil((segmentOffset - lightOffset) / lightDistance);
+                float nextSegmentStartItemIndex = ceil((segmentOffset + segmentLength - lightOffset) / lightDistance);
 
-                float viewPlanePositionY = segmentLightStart + (float(batchIndex) * lightBatchSize + position.z) * lightDistance;
+                float segmentItemIndex = segmentStartItemIndex + float(batchIndex) * lightBatchSize + position.z;
+                float viewPlanePositionY = segmentItemIndex * lightDistance + lightOffset;
                 float xOffset = computeSegmentX(viewPlanePositionY, segmentOffset, segmentCurvature, segmentX, segmentDX);
 
                 facePosition = position.xy;
@@ -213,7 +215,7 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
                 gl_Position = camera * vec4(
                     getItemCenter() + vec3(
                         position.x * size.x + xOffset,
-                        viewPlanePositionY > segmentOffset + segmentLength ? -1.0 : viewPlanePositionY,
+                        segmentItemIndex < nextSegmentStartItemIndex ? viewPlanePositionY : -1.0,
                         position.y * size.y
                     ),
                     1.0
