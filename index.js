@@ -440,6 +440,31 @@ function renderSegments(segmentList, cb) {
     });
 }
 
+function renderLights(segmentList, cb) {
+    renderSegments(segmentList, function (
+        segmentOffset,
+        segmentLength,
+        segmentX,
+        segmentDX,
+        segmentCurvature,
+        segment
+    ) {
+        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightDistance * ROAD_SETTINGS.lightBatchSize));
+
+        for (let i = 0; i < count; i += 1) {
+            cb(
+                segmentOffset,
+                segmentLength,
+                segmentX,
+                segmentDX,
+                segmentCurvature,
+                segment,
+                i
+            );
+        }
+    });
+}
+
 const cameraPosition = vec3.create();
 const camera = mat4.create();
 
@@ -505,51 +530,45 @@ const timer = new Timer(STEP, 0, function () {
         });
     });
 
-    renderSegments(segmentList, function (
+    renderLights(segmentList, function (
         segmentOffset,
         segmentLength,
         segmentX,
         segmentDX,
         segmentCurvature,
-        segment
+        segment,
+        i
     ) {
-        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightDistance * ROAD_SETTINGS.lightBatchSize));
-
-        for (let i = 0; i < count; i += 1) {
-            postCmd({
-                segmentOffset: segmentOffset,
-                segmentLength: segmentLength,
-                segmentCurvature: segmentCurvature,
-                segmentX: segmentX,
-                segmentDX: segmentDX,
-                segmentFullLength: segment.length,
-                batchIndex: i,
-                camera: camera
-            });
-        }
+        postCmd({
+            segmentOffset: segmentOffset,
+            segmentLength: segmentLength,
+            segmentCurvature: segmentCurvature,
+            segmentX: segmentX,
+            segmentDX: segmentDX,
+            segmentFullLength: segment.length,
+            batchIndex: i,
+            camera: camera
+        });
     });
 
-    renderSegments(segmentList, function (
+    renderLights(segmentList, function (
         segmentOffset,
         segmentLength,
         segmentX,
         segmentDX,
         segmentCurvature,
-        segment
+        segment,
+        i
     ) {
-        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightDistance * ROAD_SETTINGS.lightBatchSize));
-
-        for (let i = 0; i < count; i += 1) {
-            postLightCmd({
-                segmentOffset: segmentOffset,
-                segmentLength: segmentLength,
-                segmentCurvature: segmentCurvature,
-                segmentX: segmentX,
-                segmentDX: segmentDX,
-                segmentFullLength: segment.length,
-                batchIndex: i,
-                camera: camera
-            });
-        }
+        postLightCmd({
+            segmentOffset: segmentOffset,
+            segmentLength: segmentLength,
+            segmentCurvature: segmentCurvature,
+            segmentX: segmentX,
+            segmentDX: segmentDX,
+            segmentFullLength: segment.length,
+            batchIndex: i,
+            camera: camera
+        });
     });
 });
