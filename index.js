@@ -9,6 +9,10 @@ const glsl = require('glslify');
 const Timer = require('./Timer');
 const parseGLSLConstants = require('./parseGLSLConstants');
 
+const ROAD_SETTINGS = parseGLSLConstants(
+    fs.readFileSync(__dirname + '/roadSettings.glsl', 'utf8')
+);
+
 document.title = 'Pursuit Hunter';
 
 document.body.style.margin = '0';
@@ -199,8 +203,7 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             void main() {
                 float segmentLightStart = floor((segmentOffset - lightOffset) / lightDistance + 0.5) * lightDistance + lightOffset;
 
-                float batchLength = 3.0 * lightDistance;
-                float viewPlanePositionY = segmentLightStart + (float(batchIndex) + position.z) * batchLength;
+                float viewPlanePositionY = segmentLightStart + (float(batchIndex) * lightBatchSize + position.z) * lightDistance;
                 float xOffset = computeSegmentX(viewPlanePositionY, segmentOffset, segmentCurvature, segmentX, segmentDX);
 
                 facePosition = position.xy;
@@ -231,13 +234,13 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
         attributes: {
             position: regl.buffer([
                 Array.apply(null, new Array(itemCount)).map((noop, index) => [
-                    [ -1, -1, index / itemCount ],
-                    [ 1, -1, index / itemCount ],
-                    [ -1, 1, index / itemCount ],
-                    [ 1,  1, index / itemCount ],
+                    [ -1, -1, index ],
+                    [ 1, -1, index ],
+                    [ -1, 1, index ],
+                    [ 1,  1, index ],
 
-                    [ 1,  1, index / itemCount ],
-                    [ -1, -1, (index + 1) / itemCount ]
+                    [ 1,  1, index ],
+                    [ -1, -1, (index + 1) ]
                 ])
             ])
         },
@@ -258,7 +261,7 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
     });
 }
 
-postCmd = roadItemCommand(3, `
+postCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     vec3 getItemCenter() {
         float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
@@ -290,7 +293,7 @@ postCmd = roadItemCommand(3, `
     }
 `);
 
-postLightCmd = roadItemCommand(3, `
+postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     vec3 getItemCenter() {
         float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
@@ -423,10 +426,6 @@ const STEP = 1 / 60.0;
 const CAMERA_HEIGHT = 2.5;
 const DRAW_DISTANCE = 400;
 
-const ROAD_SETTINGS = parseGLSLConstants(
-    fs.readFileSync(__dirname + '/roadSettings.glsl', 'utf8')
-);
-
 let offset = 0;
 const speed = 90 / 3.6; // km/h to m/s
 
@@ -492,7 +491,7 @@ const timer = new Timer(STEP, 0, function () {
         segmentCurvature,
         segment
     ) {
-        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightDistance * 3));
+        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightDistance * ROAD_SETTINGS.lightBatchSize));
 
         for (let i = 0; i < count; i += 1) {
             postCmd({
@@ -516,7 +515,7 @@ const timer = new Timer(STEP, 0, function () {
         segmentCurvature,
         segment
     ) {
-        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightDistance * 3));
+        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightDistance * ROAD_SETTINGS.lightBatchSize));
 
         for (let i = 0; i < count; i += 1) {
             postLightCmd({
