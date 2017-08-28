@@ -116,7 +116,7 @@ roadCmd = regl({
                 viewPlanePosition.y
             );
 
-            float lightPos = 1.5 - 0.5 / (0.5 + abs((mod(segmentPosition.y - lightOffset, lightDistance) / lightDistance) - 0.5));
+            float lightPos = 1.5 - 0.5 / (0.5 + abs((mod(segmentPosition.y - lightOffset, lightSpacing) / lightSpacing) - 0.5));
 
             float wearNoise = cnoise2(segmentPosition / vec2(4.3, 12.9));
 
@@ -201,11 +201,11 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             ${itemPlacement}
 
             void main() {
-                float segmentStartItemIndex = ceil((segmentOffset - lightOffset) / lightDistance);
-                float nextSegmentStartItemIndex = ceil((segmentOffset + segmentLength - lightOffset) / lightDistance);
+                float segmentStartItemIndex = ceil((segmentOffset - getItemOffset()) / getItemSpacing());
+                float nextSegmentStartItemIndex = ceil((segmentOffset + segmentLength - getItemOffset()) / getItemSpacing());
 
-                float segmentItemIndex = segmentStartItemIndex + float(batchIndex) * lightBatchSize + position.z;
-                float viewPlanePositionY = segmentItemIndex * lightDistance + lightOffset;
+                float segmentItemIndex = segmentStartItemIndex + float(batchIndex) * getBatchSize() + position.z;
+                float viewPlanePositionY = segmentItemIndex * getItemSpacing() + getItemOffset();
                 float xOffset = computeSegmentX(viewPlanePositionY, segmentOffset, segmentCurvature, segmentX, segmentDX);
 
                 facePosition = position.xy;
@@ -264,6 +264,18 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
 }
 
 postCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
+    float getBatchSize() {
+        return lightBatchSize;
+    }
+
+    float getItemOffset() {
+        return lightOffset;
+    }
+
+    float getItemSpacing() {
+        return lightSpacing;
+    }
+
     vec3 getItemCenter() {
         float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
@@ -300,6 +312,18 @@ postCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
 `);
 
 postTopCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
+    float getBatchSize() {
+        return lightBatchSize;
+    }
+
+    float getItemOffset() {
+        return lightOffset;
+    }
+
+    float getItemSpacing() {
+        return lightSpacing;
+    }
+
     vec2 getItemSize() {
         return vec2(
             postRadius + postStem,
@@ -347,6 +371,18 @@ postTopCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
 `);
 
 postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
+    float getBatchSize() {
+        return lightBatchSize;
+    }
+
+    float getItemOffset() {
+        return lightOffset;
+    }
+
+    float getItemSpacing() {
+        return lightSpacing;
+    }
+
     vec3 getItemCenter() {
         float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
@@ -459,7 +495,7 @@ function renderLights(segmentList, cb) {
         segmentCurvature,
         segment
     ) {
-        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightDistance * ROAD_SETTINGS.lightBatchSize));
+        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightSpacing * ROAD_SETTINGS.lightBatchSize));
 
         for (let i = 0; i < count; i += 1) {
             cb(
