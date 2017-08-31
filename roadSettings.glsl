@@ -11,7 +11,7 @@
 #define postOffset 6.5
 #define postLightWidth 2.4
 #define postLightHeight 0.3
-#define postLightColor vec3(0.9, 0.95, 0.98)
+#define postLightColor vec3(0.9, 0.8, 0.4)
 
 #define lightBatchSize 5.0
 #define lightSpacing 100.0

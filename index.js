@@ -123,7 +123,7 @@ roadCmd = regl({
             float fieldDistance = abs(segmentPosition.x) - roadHalfWidth;
             if (fieldDistance > 0.0) {
                 float fieldFactor = (1.0 + 0.2 * (wearNoise - mod(wearNoise, 0.5))) * 10.0 / (10.0 + fieldDistance);
-                gl_FragColor = vec4(vec3(0.08, 0.08, 0.08) * fieldFactor, 1.0);
+                gl_FragColor = vec4(0.08, 0.12 * fieldFactor, 0.15 * fieldFactor, 1.0);
                 return;
             }
 
@@ -135,7 +135,7 @@ roadCmd = regl({
             ));
 
             float asphaltSpec = clamp((asphaltNoise - 0.8) / 0.2, 0.0, 1.0);
-            float asphaltCrack = clamp(-0.6 - asphaltNoise, 0.0, 1.0) / 0.4;
+            float asphaltCrack = clamp(-0.6 - asphaltNoise, 0.0, 1.0) / 0.6;
 
             float distToMidLane = abs(roadLaneWidth * 0.5 - abs(segmentPosition.x));
             float distToEdgeLane = abs(roadLaneWidth * 1.5 - abs(segmentPosition.x));
@@ -148,8 +148,8 @@ roadCmd = regl({
             float notMarker = notMidLane * notEdgeLane;
 
             vec3 color = notMarker < 1.0
-                ? vec3(0.45, 0.45, 0.47) * (1.0 - asphaltCrack * 0.9) * (0.1 + lightPos * 0.9)
-                : vec3(0.16, 0.16, 0.18) * (1.0 - asphaltCrack * 0.8 + asphaltSpec * 1.2) * (0.2 + lightPos * 0.8);
+                ? vec3(0.75, 0.87, 0.87) * (1.0 - asphaltCrack * 0.9) * (-0.1 + lightPos * 0.9)
+                : vec3(0.15, 0.25, 0.25) * (1.0 - asphaltCrack * 0.8 + asphaltSpec * 2.5) * (0.2 + lightPos * 0.8);
 
             gl_FragColor = vec4(color * (0.88 + wearNoise * 0.12), 1.0);
         }
@@ -492,14 +492,16 @@ fogCmd = regl({
         void main() {
             float limit = ditherLimit8x8(gl_FragCoord.xy);
             float noise = snoise3(vec3(facePosition, time * 0.1));
+            float fade = 1.0 - clamp((facePosition.y - 0.02) / 0.3, 0.0, 1.0);
+            float fadeSq = fade * fade;
 
             gl_FragColor = vec4(
-                0.05 + noise * 0.02,
-                0.07 + noise * 0.02 + 0.025 * facePosition.y,
-                0.07 + noise * 0.02 + 0.05 * facePosition.y,
+                0.19 + noise * 0.02,
+                0.1 + noise * 0.02,
+                0.19 + noise * 0.02,
                 1.0
             );
-            gl_FragDepthEXT = 1.0 - 0.025 * limit * (1.0 + 0.5 * noise);
+            gl_FragDepthEXT = 1.0 - (fadeSq + (1.0 - fadeSq) * limit * noise < limit ? 0.0 : 0.015 * limit * (1.0 + 0.2 * noise));
         }
     `,
 
@@ -515,6 +517,55 @@ fogCmd = regl({
     uniforms: {
         time: regl.prop('time')
     },
+
+    primitive: 'triangle fan',
+    count: 4
+});
+
+bgCmd = regl({
+    vert: glsl`
+        precision mediump float;
+
+        attribute vec2 position;
+        varying vec2 facePosition;
+
+        void main() {
+            facePosition = position;
+            gl_Position = vec4(position, 0.99999, 1.0);
+        }
+    `,
+
+    frag: glsl`
+        precision mediump float;
+
+        varying vec2 facePosition;
+
+        void main() {
+            float fade = clamp(1.0 - facePosition.y, 0.0, 1.0);
+            float fadeSq = fade * fade;
+
+            gl_FragColor = vec4(
+                0.2 + fadeSq * 0.5,
+                0.4 - fadeSq * 0.1,
+                0.2 + fadeSq * 0.4,
+                1.0
+            );
+        }
+    `,
+
+    attributes: {
+        position: regl.buffer([
+            [ -1, -1 ],
+            [ 1, -1 ],
+            [ 1,  1 ],
+            [ -1, 1 ]
+        ])
+    },
+
+    uniforms: {
+    },
+
+    depth: { func: 'always' },
 
     primitive: 'triangle fan',
     count: 4
@@ -574,7 +625,7 @@ const camera = mat4.create();
 const STEP = 1 / 60.0;
 
 const CAMERA_HEIGHT = 2.5;
-const DRAW_DISTANCE = 400;
+const DRAW_DISTANCE = 800;
 
 let offset = 0;
 const speed = 90 / 3.6; // km/h to m/s
@@ -611,6 +662,9 @@ const timer = new Timer(STEP, 0, function () {
     // @todo re-add horizontal shake
     vec3.set(cameraPosition, 0, -offset, -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
     mat4.translate(camera, camera, cameraPosition);
+
+    bgCmd({
+    });
 
     fogCmd({
         time: now
