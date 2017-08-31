@@ -408,6 +408,63 @@ postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     }
 `);
 
+signCmd = roadItemCommand(1, `
+    float getBatchSize() {
+        return 1.0;
+    }
+
+    float getItemOffset() {
+        return 80.0;
+    }
+
+    float getItemSpacing() {
+        return 1000.0;
+    }
+
+    vec2 getItemSize() {
+        return vec2(
+            signWidth,
+            signHeight
+        ) * 0.5;
+    }
+
+    vec3 getItemCenter() {
+        return vec3(
+            -7.8,
+            0,
+            0.5 + signHeight * 0.5
+        );
+    }
+`, `
+    void main() {
+        vec2 relpos = (facePosition * vec2(0.5, 0.5) + vec2(0.5, 0.5));
+        vec2 pos = relpos * vec2(signWidth, signHeight);
+        pos -= mod(pos, 0.075);
+
+        vec2 radial = vec2(
+            max(0.0, signRadius - pos.x) + max(0.0, pos.x + 0.075 + signRadius - signWidth),
+            max(0.0, signRadius - pos.y) + max(0.0, pos.y + 0.075 + signRadius - signHeight)
+        );
+
+        float radiusSq = dot(radial, radial);
+        float postLightInner = signRadius - 0.15;
+
+        gl_FragColor = radiusSq < postLightInner * postLightInner + 0.01
+            ? vec4(
+                0.2, 0.35, 0.3,
+                1.0
+            )
+            : vec4(
+                0.7, 0.6, 0.73,
+                1.0
+            );
+
+        if (radiusSq > signRadius * signRadius + 0.01) {
+            discard;
+        }
+    }
+`);
+
 fogCmd = regl({
     vert: glsl`
         precision mediump float;
@@ -628,6 +685,27 @@ const timer = new Timer(STEP, 0, function () {
         i
     ) {
         postLightCmd({
+            segmentOffset: segmentOffset,
+            segmentLength: segmentLength,
+            segmentCurvature: segmentCurvature,
+            segmentX: segmentX,
+            segmentDX: segmentDX,
+            segmentFullLength: segment.length,
+            batchIndex: i,
+            camera: camera
+        });
+    });
+
+    renderLights(segmentList, function (
+        segmentOffset,
+        segmentLength,
+        segmentX,
+        segmentDX,
+        segmentCurvature,
+        segment,
+        i
+    ) {
+        signCmd({
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
             segmentCurvature: segmentCurvature,
