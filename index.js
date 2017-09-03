@@ -97,9 +97,9 @@ roadCmd = regl({
         precision mediump float;
 
         #pragma glslify: roadSettings = require('./roadSettings')
-        #pragma glslify: dither = require('glsl-dither/8x8')
         #pragma glslify: cnoise2 = require('glsl-noise/classic/2d')
         #pragma glslify: computeSegmentX = require('./segment')
+        #pragma glslify: ditherLimit8x8 = require('./ditherLimit8x8')
 
         uniform float segmentOffset;
         uniform float segmentCurvature;
@@ -118,24 +118,13 @@ roadCmd = regl({
 
             float lightPos = 1.5 - 0.5 / (0.5 + abs((mod(segmentPosition.y - lightOffset, lightSpacing) / lightSpacing) - 0.5));
 
-            float wearNoise = cnoise2(segmentPosition / vec2(4.3, 12.9));
+            float wearNoise = cnoise2(segmentPosition / vec2(8.3, 17.9));
 
-            float fieldDistance = abs(segmentPosition.x) - roadHalfWidth;
-            if (fieldDistance > 0.0) {
-                float fieldFactor = (1.0 + 0.2 * (wearNoise - mod(wearNoise, 0.5))) * 10.0 / (10.0 + fieldDistance);
-                gl_FragColor = vec4(0.08, 0.12 * fieldFactor, 0.15 * fieldFactor, 1.0);
+            if (abs(segmentPosition.x) > roadHalfWidth) {
+                float fieldFactor = step(25.0, mod(segmentPosition.y, 50.0));
+                gl_FragColor = vec4(0.08, 0.08 + 0.02 * fieldFactor, 0.18 + 0.08 * fieldFactor, 1.0);
                 return;
             }
-
-            vec2 asphaltPos = segmentPosition * vec2(20.0, 10.0);
-
-            float asphaltNoise = cnoise2(vec2(
-                asphaltPos.x - mod(asphaltPos.x, 1.5),
-                asphaltPos.y - mod(asphaltPos.y, 1.5)
-            ));
-
-            float asphaltSpec = clamp((asphaltNoise - 0.8) / 0.2, 0.0, 1.0);
-            float asphaltCrack = clamp(-0.6 - asphaltNoise, 0.0, 1.0) / 0.6;
 
             float distToMidLane = abs(roadLaneWidth * 0.5 - abs(segmentPosition.x));
             float distToEdgeLane = abs(roadLaneWidth * 1.5 - abs(segmentPosition.x));
@@ -147,11 +136,19 @@ roadCmd = regl({
             float notEdgeLane = step(roadMarkerWidth * 0.5, distToEdgeLane);
             float notMarker = notMidLane * notEdgeLane;
 
-            vec3 color = notMarker < 1.0
-                ? vec3(0.75, 0.87, 0.87) * (1.0 - asphaltCrack * 0.9) * (-0.1 + lightPos * 0.9)
-                : vec3(0.15, 0.25, 0.25) * (1.0 - asphaltCrack * 0.8 + asphaltSpec * 2.5) * (0.2 + lightPos * 0.8);
+            float lightness = (0.95 + wearNoise * 0.05) * (notMarker < 1.0
+                ? (0.3 + lightPos * 0.7)
+                : (0.2 + lightPos * 0.8)
+            );
+            float limit = ditherLimit8x8(gl_FragCoord.xy);
 
-            gl_FragColor = vec4(color * (0.88 + wearNoise * 0.12), 1.0);
+            float steppedLightness = 0.7 + step(0.75 + 0.1 * limit, lightness) * 0.3 + step(0.9 + 0.2 * limit, lightness) * 0.9;
+
+            vec3 color = notMarker < 1.0
+                ? vec3(0.75, 0.87, 0.87)
+                : vec3(0.10, 0.35, 0.35);
+
+            gl_FragColor = vec4(color * steppedLightness, 1.0);
         }
     `,
 
@@ -496,9 +493,9 @@ fogCmd = regl({
             float fadeSq = fade * fade;
 
             gl_FragColor = vec4(
-                0.19 + noise * 0.02,
+                0.29 + noise * 0.02,
                 0.1 + noise * 0.02,
-                0.19 + noise * 0.02,
+                0.29 + noise * 0.02,
                 1.0
             );
             gl_FragDepthEXT = 1.0 - (fadeSq + (1.0 - fadeSq) * limit * noise < limit ? 0.0 : 0.015 * limit * (1.0 + 0.2 * noise));
@@ -546,7 +543,7 @@ bgCmd = regl({
 
             gl_FragColor = vec4(
                 0.2 + fadeSq * 0.5,
-                0.4 - fadeSq * 0.1,
+                0.6 - fadeSq * 0.2,
                 0.2 + fadeSq * 0.4,
                 1.0
             );
