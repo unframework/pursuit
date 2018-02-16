@@ -94,9 +94,7 @@ roadCmd = regl({
         precision mediump float;
 
         #pragma glslify: roadSettings = require('./roadSettings')
-        #pragma glslify: cnoise2 = require('glsl-noise/classic/2d')
         #pragma glslify: computeSegmentX = require('./segment')
-        #pragma glslify: ditherLimit8x8 = require('./ditherLimit8x8')
 
         uniform float segmentOffset;
         uniform float segmentCurvature;
@@ -115,8 +113,6 @@ roadCmd = regl({
 
             float lightPos = 1.5 - 0.5 / (0.5 + abs((mod(segmentPosition.y - lightOffset, lightSpacing) / lightSpacing) - 0.5));
 
-            float wearNoise = cnoise2(segmentPosition / vec2(8.3, 17.9));
-
             if (abs(segmentPosition.x) > roadHalfWidth) {
                 float fieldFactor = step(25.0, mod(segmentPosition.y, 50.0));
                 gl_FragColor = vec4(0.08, 0.08 + 0.02 * fieldFactor, 0.18 + 0.08 * fieldFactor, 1.0);
@@ -133,13 +129,12 @@ roadCmd = regl({
             float notEdgeLane = step(roadMarkerWidth * 0.5, distToEdgeLane);
             float notMarker = notMidLane * notEdgeLane;
 
-            float lightness = (0.95 + wearNoise * 0.05) * (notMarker < 1.0
+            float lightness = (notMarker < 1.0
                 ? (0.3 + lightPos * 0.7)
                 : (0.2 + lightPos * 0.8)
             );
-            float limit = ditherLimit8x8(gl_FragCoord.xy);
 
-            float steppedLightness = 0.7 + step(0.75 + 0.1 * limit, lightness) * 0.3 + step(0.9 + 0.2 * limit, lightness) * 0.9;
+            float steppedLightness = 0.1 + (floor(lightness * 20.0) * 0.05) * 1.2;
 
             vec3 color = notMarker < 1.0
                 ? vec3(0.75, 0.87, 0.87)
