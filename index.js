@@ -45,9 +45,6 @@ div.appendChild(document.createTextNode('@line_ctrl'));
 document.body.appendChild(div);
 
 const regl = require('regl')({
-    extensions: [
-        'EXT_frag_depth'
-    ],
     canvas: canvas
 });
 
@@ -462,63 +459,6 @@ signCmd = roadItemCommand(1, `
     }
 `);
 
-fogCmd = regl({
-    vert: glsl`
-        precision mediump float;
-
-        attribute vec2 position;
-        varying vec2 facePosition;
-
-        void main() {
-            facePosition = position;
-            gl_Position = vec4(position, 0, 1.0);
-        }
-    `,
-
-    frag: glsl`
-        #extension GL_EXT_frag_depth: require
-        precision mediump float;
-
-        #pragma glslify: snoise3 = require('glsl-noise/simplex/3d')
-        #pragma glslify: ditherLimit8x8 = require('./ditherLimit8x8')
-
-        uniform float time;
-
-        varying vec2 facePosition;
-
-        void main() {
-            float limit = ditherLimit8x8(gl_FragCoord.xy);
-            float noise = snoise3(vec3(facePosition, time * 0.1));
-            float fade = 1.0 - clamp((facePosition.y - 0.02) / 0.3, 0.0, 1.0);
-            float fadeSq = fade * fade;
-
-            gl_FragColor = vec4(
-                0.29 + noise * 0.02,
-                0.1 + noise * 0.02,
-                0.29 + noise * 0.02,
-                1.0
-            );
-            gl_FragDepthEXT = 1.0 - (fadeSq + (1.0 - fadeSq) * limit * noise < limit ? 0.0 : 0.015 * limit * (1.0 + 0.2 * noise));
-        }
-    `,
-
-    attributes: {
-        position: regl.buffer([
-            [ -1, -1 ],
-            [ 1, -1 ],
-            [ 1,  1 ],
-            [ -1, 1 ]
-        ])
-    },
-
-    uniforms: {
-        time: regl.prop('time')
-    },
-
-    primitive: 'triangle fan',
-    count: 4
-});
-
 bgCmd = regl({
     vert: glsl`
         precision mediump float;
@@ -542,9 +482,9 @@ bgCmd = regl({
             float fadeSq = fade * fade;
 
             gl_FragColor = vec4(
-                0.2 + fadeSq * 0.5,
-                0.6 - fadeSq * 0.2,
                 0.2 + fadeSq * 0.4,
+                0.6 - fadeSq * 0.4,
+                0.2 + fadeSq * 0.3,
                 1.0
             );
         }
@@ -661,10 +601,6 @@ const timer = new Timer(STEP, 0, function () {
     mat4.translate(camera, camera, cameraPosition);
 
     bgCmd({
-    });
-
-    fogCmd({
-        time: now
     });
 
     renderSegments(segmentList, function (
