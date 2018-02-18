@@ -499,7 +499,7 @@ const camera = mat4.create();
 
 const STEP = 1 / 60.0;
 
-const CAMERA_HEIGHT = 2.5;
+const CAMERA_HEIGHT = 1.0;
 const DRAW_DISTANCE = 800;
 
 let offset = 0;
