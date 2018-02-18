@@ -17,10 +17,6 @@
 #define lightSpacing 100.0
 #define lightOffset 5.0
 
-#define signWidth 1.5
-#define signHeight 1.8
-#define signRadius 0.15
-
 void roadSettings() {}
 
 #pragma glslify: export(roadSettings)
