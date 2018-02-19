@@ -98,17 +98,16 @@ roadCmd = regl({
         #pragma glslify: computeSegmentX = require('./segment')
 
         uniform float segmentOffset;
-        uniform float segmentCurvature;
-        uniform float segmentX;
-        uniform float segmentDX;
+        uniform vec3 segmentCurve;
 
         varying vec2 viewPlanePosition;
 
         void main() {
             float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
 
+            float segmentDepth = viewPlanePosition.y - segmentOffset;
             vec2 segmentPosition = vec2(
-                viewPlanePosition.x - computeSegmentX(viewPlanePosition.y, segmentOffset, segmentCurvature, segmentX, segmentDX),
+                viewPlanePosition.x - computeSegmentX(segmentDepth, segmentCurve),
                 viewPlanePosition.y
             );
 
@@ -156,10 +155,8 @@ roadCmd = regl({
 
     uniforms: {
         segmentLength: regl.prop('segmentLength'),
-        segmentCurvature: regl.prop('segmentCurvature'),
+        segmentCurve: regl.prop('segmentCurve'),
         segmentOffset: regl.prop('segmentOffset'),
-        segmentX: regl.prop('segmentX'),
-        segmentDX: regl.prop('segmentDX'),
         camera: regl.prop('camera')
     },
 
@@ -177,9 +174,7 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
 
             uniform float segmentOffset;
             uniform float segmentLength;
-            uniform float segmentX;
-            uniform float segmentDX;
-            uniform float segmentCurvature;
+            uniform vec3 segmentCurve;
             uniform float segmentFullLength;
             uniform int batchIndex;
             uniform float cameraOffset;
@@ -200,8 +195,8 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
 
                 float segmentItemIndex = segmentStartItemIndex + float(batchIndex) * getBatchSize() + position.z;
                 float viewPlanePositionY = segmentItemIndex * getItemSpacing() + getItemOffset();
-                xOffset = computeSegmentX(viewPlanePositionY, segmentOffset, segmentCurvature, segmentX, segmentDX);
                 segmentDepth = viewPlanePositionY - segmentOffset;
+                xOffset = computeSegmentX(segmentDepth, segmentCurve);
 
                 facePosition = position.xy;
                 depth = viewPlanePositionY - cameraOffset;
@@ -249,9 +244,7 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
         uniforms: {
             segmentOffset: regl.prop('segmentOffset'),
             segmentLength: regl.prop('segmentLength'),
-            segmentX: regl.prop('segmentX'),
-            segmentDX: regl.prop('segmentDX'),
-            segmentCurvature: regl.prop('segmentCurvature'),
+            segmentCurve: regl.prop('segmentCurve'),
             segmentFullLength: regl.prop('segmentFullLength'),
             batchIndex: regl.prop('batchIndex'),
             cameraOffset: regl.prop('cameraOffset'),
@@ -425,7 +418,7 @@ fenceCmd = roadItemCommand(50.0, `
     }
 
     vec2 getItemSize() {
-        float xOffsetDelta = computeSegmentDX(fenceSpacing, segmentDepth, segmentCurvature, segmentDX);
+        float xOffsetDelta = computeSegmentDX(fenceSpacing, segmentDepth, segmentCurve);
 
         float visibleSideWidth = (fenceXOffset + xOffset) * fenceSpacing / (depth + fenceSpacing);
         float visibleCurvatureAdjustment = xOffsetDelta * depth / (depth + fenceSpacing);
@@ -518,6 +511,8 @@ bgCmd = regl({
     count: 4
 });
 
+const tmpCurve = vec3.create();
+
 function renderSegments(segmentList, cb) {
     let x = 0;
     let dx = 0;
@@ -526,12 +521,17 @@ function renderSegments(segmentList, cb) {
         // ensure segment vertices are not "behind" camera, otherwise perspective correction gets busted
         const segmentOffset = Math.max(offset + 3, segment.end - segment.length);
 
+        vec3.set(
+            tmpCurve,
+            x,
+            dx,
+            segment.curvature
+        );
+
         cb(
             segmentOffset,
             segment.end - segmentOffset,
-            x,
-            dx,
-            segment.curvature,
+            tmpCurve,
             segment
         );
 
@@ -545,9 +545,7 @@ function renderLights(segmentList, cb) {
     renderSegments(segmentList, function (
         segmentOffset,
         segmentLength,
-        segmentX,
-        segmentDX,
-        segmentCurvature,
+        segmentCurve,
         segment
     ) {
         const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightSpacing * ROAD_SETTINGS.lightBatchSize));
@@ -556,9 +554,7 @@ function renderLights(segmentList, cb) {
             cb(
                 segmentOffset,
                 segmentLength,
-                segmentX,
-                segmentDX,
-                segmentCurvature,
+                segmentCurve,
                 segment,
                 i
             );
@@ -620,16 +616,12 @@ const timer = new Timer(STEP, 0, function () {
     renderSegments(segmentList, function (
         segmentOffset,
         segmentLength,
-        segmentX,
-        segmentDX,
-        segmentCurvature
+        segmentCurve
     ) {
         roadCmd({
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
-            segmentCurvature: segmentCurvature,
-            segmentX: segmentX,
-            segmentDX: segmentDX,
+            segmentCurve: segmentCurve,
             camera: camera
         });
     });
@@ -637,18 +629,14 @@ const timer = new Timer(STEP, 0, function () {
     renderLights(segmentList, function (
         segmentOffset,
         segmentLength,
-        segmentX,
-        segmentDX,
-        segmentCurvature,
+        segmentCurve,
         segment,
         i
     ) {
         postCmd({
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
-            segmentCurvature: segmentCurvature,
-            segmentX: segmentX,
-            segmentDX: segmentDX,
+            segmentCurve: segmentCurve,
             segmentFullLength: segment.length,
             batchIndex: i,
             cameraOffset: offset,
@@ -659,18 +647,14 @@ const timer = new Timer(STEP, 0, function () {
     renderLights(segmentList, function (
         segmentOffset,
         segmentLength,
-        segmentX,
-        segmentDX,
-        segmentCurvature,
+        segmentCurve,
         segment,
         i
     ) {
         postTopCmd({
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
-            segmentCurvature: segmentCurvature,
-            segmentX: segmentX,
-            segmentDX: segmentDX,
+            segmentCurve: segmentCurve,
             segmentFullLength: segment.length,
             batchIndex: i,
             cameraOffset: offset,
@@ -681,18 +665,14 @@ const timer = new Timer(STEP, 0, function () {
     renderLights(segmentList, function (
         segmentOffset,
         segmentLength,
-        segmentX,
-        segmentDX,
-        segmentCurvature,
+        segmentCurve,
         segment,
         i
     ) {
         postLightCmd({
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
-            segmentCurvature: segmentCurvature,
-            segmentX: segmentX,
-            segmentDX: segmentDX,
+            segmentCurve: segmentCurve,
             segmentFullLength: segment.length,
             batchIndex: i,
             cameraOffset: offset,
@@ -703,18 +683,14 @@ const timer = new Timer(STEP, 0, function () {
     renderLights(segmentList, function (
         segmentOffset,
         segmentLength,
-        segmentX,
-        segmentDX,
-        segmentCurvature,
+        segmentCurve,
         segment,
         i
     ) {
         fenceCmd({
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
-            segmentCurvature: segmentCurvature,
-            segmentX: segmentX,
-            segmentDX: segmentDX,
+            segmentCurve: segmentCurve,
             segmentFullLength: segment.length,
             batchIndex: i,
             cameraOffset: offset,
