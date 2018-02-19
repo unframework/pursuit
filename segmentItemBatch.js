@@ -1,7 +1,5 @@
 const glsl = require('glslify');
 
-const { withEachSegmentVisibleCurve } = require('./segment');
-
 function createSegmentItemBatchCommand(regl, itemCount, itemPlacement, itemFrag) {
     return regl({
         vert: glsl`
@@ -80,10 +78,6 @@ function createSegmentItemBatchCommand(regl, itemCount, itemPlacement, itemFrag)
         },
 
         uniforms: {
-            segmentOffset: regl.prop('segmentOffset'),
-            segmentLength: regl.prop('segmentLength'),
-            segmentCurve: regl.prop('segmentCurve'),
-
             batchIndex: regl.prop('batchIndex'),
             batchSize: regl.prop('batchSize'),
             batchItemSpacing: regl.prop('batchItemSpacing'),
@@ -97,29 +91,19 @@ function createSegmentItemBatchCommand(regl, itemCount, itemPlacement, itemFrag)
     });
 }
 
-function renderSegmentItems(itemSpacing, itemBatchSize, itemCommand, segmentList, cameraOffset, camera) {
-    withEachSegmentVisibleCurve(segmentList, cameraOffset, function (
-        segmentOffset,
-        segmentLength,
-        segmentCurve
-    ) {
-        const count = Math.ceil(segmentLength / (itemSpacing * itemBatchSize));
+function renderSegmentItems(segmentLength, itemSpacing, itemBatchSize, itemCommand, cameraOffset, camera) {
+    const count = Math.ceil(segmentLength / (itemSpacing * itemBatchSize));
 
-        for (let i = 0; i < count; i += 1) {
-            itemCommand({
-                segmentOffset: segmentOffset,
-                segmentLength: segmentLength,
-                segmentCurve: segmentCurve,
+    for (let i = 0; i < count; i += 1) {
+        itemCommand({
+            batchIndex: i,
+            batchSize: itemBatchSize,
+            batchItemSpacing: itemSpacing,
 
-                batchIndex: i,
-                batchSize: itemBatchSize,
-                batchItemSpacing: itemSpacing,
-
-                cameraOffset: cameraOffset,
-                camera: camera
-            });
-        }
-    });
+            cameraOffset: cameraOffset,
+            camera: camera
+        });
+    }
 }
 
 module.exports = {
