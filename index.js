@@ -175,7 +175,11 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             uniform float segmentOffset;
             uniform float segmentLength;
             uniform vec3 segmentCurve;
+
             uniform int batchIndex;
+            uniform float batchSize;
+            uniform float batchItemSpacing;
+
             uniform float cameraOffset;
             uniform mat4 camera;
 
@@ -189,11 +193,11 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             ${itemPlacement}
 
             void main() {
-                float segmentStartItemIndex = ceil((segmentOffset - getItemOffset()) / getItemSpacing());
-                float nextSegmentStartItemIndex = ceil((segmentOffset + segmentLength - getItemOffset()) / getItemSpacing());
+                float segmentStartItemIndex = ceil((segmentOffset - getItemOffset()) / batchItemSpacing);
+                float nextSegmentStartItemIndex = ceil((segmentOffset + segmentLength - getItemOffset()) / batchItemSpacing);
 
-                float segmentItemIndex = segmentStartItemIndex + float(batchIndex) * getBatchSize() + position.z;
-                float viewPlanePositionY = segmentItemIndex * getItemSpacing() + getItemOffset();
+                float segmentItemIndex = segmentStartItemIndex + float(batchIndex) * batchSize + position.z;
+                float viewPlanePositionY = segmentItemIndex * batchItemSpacing + getItemOffset();
                 segmentDepth = viewPlanePositionY - segmentOffset;
                 xOffset = computeSegmentX(segmentDepth, segmentCurve);
 
@@ -244,7 +248,11 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             segmentOffset: regl.prop('segmentOffset'),
             segmentLength: regl.prop('segmentLength'),
             segmentCurve: regl.prop('segmentCurve'),
+
             batchIndex: regl.prop('batchIndex'),
+            batchSize: regl.prop('batchSize'),
+            batchItemSpacing: regl.prop('batchItemSpacing'),
+
             cameraOffset: regl.prop('cameraOffset'),
             camera: regl.prop('camera')
         },
@@ -255,16 +263,8 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
 }
 
 postCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
-    float getBatchSize() {
-        return lightBatchSize;
-    }
-
     float getItemOffset() {
         return lightOffset;
-    }
-
-    float getItemSpacing() {
-        return lightSpacing;
     }
 
     vec3 getItemCenter() {
@@ -301,16 +301,8 @@ postCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
 `);
 
 postTopCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
-    float getBatchSize() {
-        return lightBatchSize;
-    }
-
     float getItemOffset() {
         return lightOffset;
-    }
-
-    float getItemSpacing() {
-        return lightSpacing;
     }
 
     vec2 getItemSize() {
@@ -359,16 +351,8 @@ postTopCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
 `);
 
 postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
-    float getBatchSize() {
-        return lightBatchSize;
-    }
-
     float getItemOffset() {
         return lightOffset;
-    }
-
-    float getItemSpacing() {
-        return lightSpacing;
     }
 
     vec3 getItemCenter() {
@@ -395,16 +379,8 @@ postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
 `);
 
 fenceCmd = roadItemCommand(50.0, `
-    float getBatchSize() {
-        return fenceBatchSize;
-    }
-
     float getItemOffset() {
         return 6.0; // right after the light post to avoid overlapping it
-    }
-
-    float getItemSpacing() {
-        return fenceSpacing;
     }
 
     vec3 getItemCenter() {
@@ -553,7 +529,11 @@ function renderSegmentItems(itemSpacing, itemBatchSize, itemCommand, segmentList
                 segmentOffset: segmentOffset,
                 segmentLength: segmentLength,
                 segmentCurve: segmentCurve,
+
                 batchIndex: i,
+                batchSize: itemBatchSize,
+                batchItemSpacing: itemSpacing,
+
                 cameraOffset: cameraOffset,
                 camera: camera
             });
