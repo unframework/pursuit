@@ -417,21 +417,17 @@ fenceCmd = roadItemCommand(50.0, `
     }
 
     vec3 getItemCenter() {
-        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
-
         return vec3(
-            roadHalfWidth,
+            fenceXOffset,
             0,
             fenceHeight * 0.5
         );
     }
 
     vec2 getItemSize() {
-        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
-
         float xOffsetDelta = computeSegmentDX(fenceSpacing, segmentDepth, segmentCurvature, segmentDX);
 
-        float visibleSideWidth = (roadHalfWidth + xOffset) * fenceSpacing / (depth + fenceSpacing);
+        float visibleSideWidth = (fenceXOffset + xOffset) * fenceSpacing / (depth + fenceSpacing);
         float visibleCurvatureAdjustment = xOffsetDelta * depth / (depth + fenceSpacing);
 
         return vec2(
@@ -441,7 +437,7 @@ fenceCmd = roadItemCommand(50.0, `
     }
 `, `
 
-    #define texelSize 0.08
+    #define texelSize 0.1
     #define xGradientPrecision 0.1
 
     void main() {
@@ -465,9 +461,9 @@ fenceCmd = roadItemCommand(50.0, `
 
         if (facePosition.x > 0.0) {
             discard;
-        } else if (faceTexelPosition.x * xGradient * cameraHeightRatio > faceTexelPosition.y + 1.0) {
+        } else if (faceTexelPosition.x * xGradient * cameraHeightRatio > faceTexelPosition.y + 1.0 - texelSize * 0.5) {
             discard;
-        } else if (faceTexelPosition.x * xGradient * cameraHeightRatio2 > -faceTexelPosition.y + 1.0) {
+        } else if (faceTexelPosition.x * xGradient * cameraHeightRatio2 > -faceTexelPosition.y + 1.0 + texelSize * 0.5) {
             discard;
         }
     }

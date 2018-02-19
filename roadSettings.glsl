@@ -1,6 +1,6 @@
 
 #define roadLaneWidth 3.2
-#define roadShoulderWidth 2.2
+#define roadShoulderWidth 4.0
 #define roadMarkerWidth 0.25
 #define roadLaneMarkerLength 4.5
 
@@ -19,6 +19,7 @@
 
 #define fenceSpacing 10.0
 #define fenceHeight 3.0
+#define fenceXOffset 7.5
 
 void roadSettings() {}
 
