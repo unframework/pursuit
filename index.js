@@ -378,7 +378,7 @@ postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     }
 `);
 
-fenceCmd = roadItemCommand(50.0, `
+fenceCmd = roadItemCommand(ROAD_SETTINGS.fenceBatchSize, `
     float getItemOffset() {
         return 6.0; // right after the light post to avoid overlapping it
     }
