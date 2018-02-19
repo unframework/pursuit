@@ -8,7 +8,7 @@ const glsl = require('glslify');
 
 const Timer = require('./Timer');
 const parseGLSLConstants = require('./parseGLSLConstants');
-const { renderSegments } = require('./segment');
+const { withEachSegmentVisibleCurve } = require('./segment');
 const { createSegmentItemBatchCommand, renderSegmentItems } = require('./segmentItemBatch');
 
 const ROAD_SETTINGS = parseGLSLConstants(
@@ -455,7 +455,7 @@ const timer = new Timer(STEP, 0, function () {
     bgCmd({
     });
 
-    renderSegments(segmentList, offset, function (
+    withEachSegmentVisibleCurve(segmentList, offset, function (
         segmentOffset,
         segmentLength,
         segmentCurve

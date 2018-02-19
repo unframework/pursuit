@@ -1,6 +1,6 @@
 const glsl = require('glslify');
 
-const { renderSegments } = require('./segment');
+const { withEachSegmentVisibleCurve } = require('./segment');
 
 function createSegmentItemBatchCommand(regl, itemCount, itemPlacement, itemFrag) {
     return regl({
@@ -98,7 +98,7 @@ function createSegmentItemBatchCommand(regl, itemCount, itemPlacement, itemFrag)
 }
 
 function renderSegmentItems(itemSpacing, itemBatchSize, itemCommand, segmentList, cameraOffset, camera) {
-    renderSegments(segmentList, cameraOffset, function (
+    withEachSegmentVisibleCurve(segmentList, cameraOffset, function (
         segmentOffset,
         segmentLength,
         segmentCurve
