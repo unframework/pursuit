@@ -57,8 +57,6 @@ function createSegmentItemBatchCommand(regl, itemCount, itemPlacement, itemFrag)
         frag: glsl`
             precision mediump float;
 
-            #pragma glslify: roadSettings = require('./roadSettings')
-
             varying vec2 facePosition;
             varying float xOffset;
             varying float depth;

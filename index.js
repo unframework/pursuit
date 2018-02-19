@@ -187,7 +187,9 @@ postCmd = createSegmentItemBatchCommand(regl, ROAD_SETTINGS.lightBatchSize, glsl
             postHeight - postRadius
         ) * 0.5;
     }
-`, `
+`, glsl`
+    #pragma glslify: roadSettings = require('./roadSettings')
+
     void main() {
         vec2 relpos = (facePosition * vec2(0.5, 0.5) + vec2(0.5, 0.5));
         vec2 pos = relpos * vec2(postWidth, postHeight);
@@ -233,7 +235,9 @@ postTopCmd = createSegmentItemBatchCommand(regl, ROAD_SETTINGS.lightBatchSize, g
             size.y
         );
     }
-`, `
+`, glsl`
+    #pragma glslify: roadSettings = require('./roadSettings')
+
     void main() {
         vec2 relpos = (facePosition * vec2(0.5, 0.5) + vec2(0.5, 0.5));
         vec2 pos = relpos * vec2(postRadius + postStem, postRadius);
@@ -279,7 +283,9 @@ postLightCmd = createSegmentItemBatchCommand(regl, ROAD_SETTINGS.lightBatchSize,
             postLightHeight
         ) * 0.5;
     }
-`, `
+`, glsl`
+    #pragma glslify: roadSettings = require('./roadSettings')
+
     void main() {
         gl_FragColor = vec4(
             postLightColor,
@@ -314,7 +320,8 @@ fenceCmd = createSegmentItemBatchCommand(regl, ROAD_SETTINGS.fenceBatchSize, gls
             fenceHeight * 0.5
         );
     }
-`, `
+`, glsl`
+    #pragma glslify: roadSettings = require('./roadSettings')
 
     #define texelSize 0.1
     #define xGradientPrecision 0.1
