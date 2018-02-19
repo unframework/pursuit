@@ -103,8 +103,7 @@ function renderSegmentItems(itemSpacing, itemBatchSize, itemCommand, segmentList
     renderSegments(segmentList, cameraOffset, function (
         segmentOffset,
         segmentLength,
-        segmentCurve,
-        segment
+        segmentCurve
     ) {
         const count = Math.ceil(segmentLength / (itemSpacing * itemBatchSize));
 

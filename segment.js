@@ -20,8 +20,7 @@ function renderSegments(segmentList, offset, cb) {
         cb(
             segmentOffset,
             segment.end - segmentOffset,
-            tmpCurve,
-            segment
+            tmpCurve
         );
 
         const depth = 0.01 * (segment.end - segmentOffset);
