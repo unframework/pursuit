@@ -539,7 +539,7 @@ function renderSegments(segmentList, cb) {
     });
 }
 
-function renderSegmentItems(itemSpacing, itemBatchSize, segmentList, cb) {
+function renderSegmentItems(itemSpacing, itemBatchSize, itemCommand, segmentList, cameraOffset, camera) {
     renderSegments(segmentList, function (
         segmentOffset,
         segmentLength,
@@ -549,13 +549,14 @@ function renderSegmentItems(itemSpacing, itemBatchSize, segmentList, cb) {
         const count = Math.ceil(segmentLength / (itemSpacing * itemBatchSize));
 
         for (let i = 0; i < count; i += 1) {
-            cb(
-                segmentOffset,
-                segmentLength,
-                segmentCurve,
-                segment,
-                i
-            );
+            itemCommand({
+                segmentOffset: segmentOffset,
+                segmentLength: segmentLength,
+                segmentCurve: segmentCurve,
+                batchIndex: i,
+                cameraOffset: cameraOffset,
+                camera: camera
+            });
         }
     });
 }
@@ -624,71 +625,8 @@ const timer = new Timer(STEP, 0, function () {
         });
     });
 
-    renderSegmentItems(ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, segmentList, function (
-        segmentOffset,
-        segmentLength,
-        segmentCurve,
-        segment,
-        i
-    ) {
-        postCmd({
-            segmentOffset: segmentOffset,
-            segmentLength: segmentLength,
-            segmentCurve: segmentCurve,
-            batchIndex: i,
-            cameraOffset: offset,
-            camera: camera
-        });
-    });
-
-    renderSegmentItems(ROAD_SETTINGS.fenceSpacing, ROAD_SETTINGS.fenceBatchSize, segmentList, function (
-        segmentOffset,
-        segmentLength,
-        segmentCurve,
-        segment,
-        i
-    ) {
-        postTopCmd({
-            segmentOffset: segmentOffset,
-            segmentLength: segmentLength,
-            segmentCurve: segmentCurve,
-            batchIndex: i,
-            cameraOffset: offset,
-            camera: camera
-        });
-    });
-
-    renderSegmentItems(ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, segmentList, function (
-        segmentOffset,
-        segmentLength,
-        segmentCurve,
-        segment,
-        i
-    ) {
-        postLightCmd({
-            segmentOffset: segmentOffset,
-            segmentLength: segmentLength,
-            segmentCurve: segmentCurve,
-            batchIndex: i,
-            cameraOffset: offset,
-            camera: camera
-        });
-    });
-
-    renderSegmentItems(ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, segmentList, function (
-        segmentOffset,
-        segmentLength,
-        segmentCurve,
-        segment,
-        i
-    ) {
-        fenceCmd({
-            segmentOffset: segmentOffset,
-            segmentLength: segmentLength,
-            segmentCurve: segmentCurve,
-            batchIndex: i,
-            cameraOffset: offset,
-            camera: camera
-        });
-    });
+    renderSegmentItems(ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, postCmd, segmentList, offset, camera);
+    renderSegmentItems(ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, postTopCmd, segmentList, offset, camera);
+    renderSegmentItems(ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, postLightCmd, segmentList, offset, camera);
+    renderSegmentItems(ROAD_SETTINGS.fenceSpacing, ROAD_SETTINGS.fenceBatchSize, fenceCmd, segmentList, offset, camera);
 });
