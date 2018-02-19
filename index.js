@@ -8,6 +8,8 @@ const glsl = require('glslify');
 
 const Timer = require('./Timer');
 const parseGLSLConstants = require('./parseGLSLConstants');
+const { renderSegments } = require('./segment');
+const { createSegmentItemBatchCommand, renderSegmentItems } = require('./segmentItemBatch');
 
 const ROAD_SETTINGS = parseGLSLConstants(
     fs.readFileSync(__dirname + '/roadSettings.glsl', 'utf8')
@@ -164,105 +166,9 @@ roadCmd = regl({
     count: 4
 });
 
-function roadItemCommand(itemCount, itemPlacement, itemFrag) {
-    return regl({
-        vert: glsl`
-            precision mediump float;
+postCmd = createSegmentItemBatchCommand(regl, ROAD_SETTINGS.lightBatchSize, glsl`
+    #pragma glslify: roadSettings = require('./roadSettings')
 
-            #pragma glslify: roadSettings = require('./roadSettings')
-            #pragma glslify: computeSegmentX = require('./segment')
-
-            uniform float segmentOffset;
-            uniform float segmentLength;
-            uniform vec3 segmentCurve;
-
-            uniform int batchIndex;
-            uniform float batchSize;
-            uniform float batchItemSpacing;
-
-            uniform float cameraOffset;
-            uniform mat4 camera;
-
-            attribute vec3 position;
-
-            varying vec2 facePosition;
-            varying float xOffset;
-            varying float depth;
-            varying float segmentDepth;
-
-            ${itemPlacement}
-
-            void main() {
-                float segmentStartItemIndex = ceil((segmentOffset - getItemOffset()) / batchItemSpacing);
-                float nextSegmentStartItemIndex = ceil((segmentOffset + segmentLength - getItemOffset()) / batchItemSpacing);
-
-                float segmentItemIndex = segmentStartItemIndex + float(batchIndex) * batchSize + position.z;
-                float viewPlanePositionY = segmentItemIndex * batchItemSpacing + getItemOffset();
-                segmentDepth = viewPlanePositionY - segmentOffset;
-                xOffset = computeSegmentX(segmentDepth, segmentCurve);
-
-                facePosition = position.xy;
-                depth = viewPlanePositionY - cameraOffset;
-
-                vec2 itemSize = getItemSize();
-
-                gl_Position = camera * vec4(
-                    getItemCenter() + vec3(
-                        position.x * itemSize.x + xOffset,
-                        segmentItemIndex < nextSegmentStartItemIndex ? viewPlanePositionY : -1.0,
-                        position.y * itemSize.y
-                    ),
-                    1.0
-                );
-            }
-        `,
-
-        frag: glsl`
-            precision mediump float;
-
-            #pragma glslify: roadSettings = require('./roadSettings')
-
-            varying vec2 facePosition;
-            varying float xOffset;
-            varying float depth;
-            varying float segmentDepth;
-
-            ${itemFrag}
-        `,
-
-        attributes: {
-            position: regl.buffer([
-                Array.apply(null, new Array(itemCount)).map((noop, index) => [
-                    [ -1, -1, index ],
-                    [ 1, -1, index ],
-                    [ -1, 1, index ],
-                    [ 1,  1, index ],
-
-                    [ 1,  1, index ],
-                    [ -1, -1, (index + 1) ]
-                ])
-            ])
-        },
-
-        uniforms: {
-            segmentOffset: regl.prop('segmentOffset'),
-            segmentLength: regl.prop('segmentLength'),
-            segmentCurve: regl.prop('segmentCurve'),
-
-            batchIndex: regl.prop('batchIndex'),
-            batchSize: regl.prop('batchSize'),
-            batchItemSpacing: regl.prop('batchItemSpacing'),
-
-            cameraOffset: regl.prop('cameraOffset'),
-            camera: regl.prop('camera')
-        },
-
-        primitive: 'triangle strip',
-        count: itemCount * 6
-    });
-}
-
-postCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     float getItemOffset() {
         return lightOffset;
     }
@@ -300,7 +206,9 @@ postCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     }
 `);
 
-postTopCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
+postTopCmd = createSegmentItemBatchCommand(regl, ROAD_SETTINGS.lightBatchSize, glsl`
+    #pragma glslify: roadSettings = require('./roadSettings')
+
     float getItemOffset() {
         return lightOffset;
     }
@@ -350,7 +258,9 @@ postTopCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     }
 `);
 
-postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
+postLightCmd = createSegmentItemBatchCommand(regl, ROAD_SETTINGS.lightBatchSize, glsl`
+    #pragma glslify: roadSettings = require('./roadSettings')
+
     float getItemOffset() {
         return lightOffset;
     }
@@ -378,7 +288,9 @@ postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     }
 `);
 
-fenceCmd = roadItemCommand(ROAD_SETTINGS.fenceBatchSize, `
+fenceCmd = createSegmentItemBatchCommand(regl, ROAD_SETTINGS.fenceBatchSize, glsl`
+    #pragma glslify: roadSettings = require('./roadSettings')
+
     float getItemOffset() {
         return 6.0; // right after the light post to avoid overlapping it
     }
@@ -485,62 +397,6 @@ bgCmd = regl({
     count: 4
 });
 
-const tmpCurve = vec3.create();
-
-function renderSegments(segmentList, cb) {
-    let x = 0;
-    let dx = 0;
-
-    segmentList.forEach(function (segment) {
-        // ensure segment vertices are not "behind" camera, otherwise perspective correction gets busted
-        const segmentOffset = Math.max(offset + 3, segment.end - segment.length);
-
-        vec3.set(
-            tmpCurve,
-            x,
-            dx,
-            segment.curvature
-        );
-
-        cb(
-            segmentOffset,
-            segment.end - segmentOffset,
-            tmpCurve,
-            segment
-        );
-
-        const depth = 0.01 * (segment.end - segmentOffset);
-        x += segment.curvature * depth * depth + dx * depth;
-        dx += 2 * segment.curvature * depth;
-    });
-}
-
-function renderSegmentItems(itemSpacing, itemBatchSize, itemCommand, segmentList, cameraOffset, camera) {
-    renderSegments(segmentList, function (
-        segmentOffset,
-        segmentLength,
-        segmentCurve,
-        segment
-    ) {
-        const count = Math.ceil(segmentLength / (itemSpacing * itemBatchSize));
-
-        for (let i = 0; i < count; i += 1) {
-            itemCommand({
-                segmentOffset: segmentOffset,
-                segmentLength: segmentLength,
-                segmentCurve: segmentCurve,
-
-                batchIndex: i,
-                batchSize: itemBatchSize,
-                batchItemSpacing: itemSpacing,
-
-                cameraOffset: cameraOffset,
-                camera: camera
-            });
-        }
-    });
-}
-
 const cameraPosition = vec3.create();
 const camera = mat4.create();
 
@@ -592,7 +448,7 @@ const timer = new Timer(STEP, 0, function () {
     bgCmd({
     });
 
-    renderSegments(segmentList, function (
+    renderSegments(segmentList, offset, function (
         segmentOffset,
         segmentLength,
         segmentCurve
