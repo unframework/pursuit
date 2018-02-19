@@ -446,27 +446,31 @@ fenceCmd = roadItemCommand(50.0, `
     }
 `, `
 
-    #define texelSize 0.05
+    #define texelSize 0.08
+    #define xGradientPrecision 0.05
 
     void main() {
         vec2 surfacePosition = facePosition * vec2(1.0, fenceHeight * 0.5);
-        surfacePosition -= mod(surfacePosition, texelSize);
+        surfacePosition += mod(-surfacePosition, texelSize);
         vec2 faceTexelPosition = surfacePosition / vec2(1.0, fenceHeight * 0.5);
 
-        float depthRatio = depth / (depth + fenceSpacing);
+        float depthRatio = clamp(depth / (depth + fenceSpacing), 0.3, 1.0); // clamp the steeper perspective
         float xGradient = depthRatio - 1.0;
+        xGradient += mod(-xGradient, xGradientPrecision); // quantize up to avoid gap in wall
 
         float cameraHeightRatio = 1.0 / (fenceHeight * 0.5);
         float cameraHeightRatio2 = (fenceHeight - 1.0) / (fenceHeight * 0.5);
 
         gl_FragColor = vec4(
-            0.55 + faceTexelPosition.x * 0.4, 0.6, 0.6,
+            0.55 + faceTexelPosition.x * 0.3,
+            0.6 + faceTexelPosition.x * 0.3,
+            0.7 + faceTexelPosition.x * 0.3,
             1.0
         );
 
         if (facePosition.x > 0.0) {
             discard;
-        } else if (faceTexelPosition.x * xGradient * cameraHeightRatio > faceTexelPosition.y + 1.0 + cameraHeightRatio * texelSize) {
+        } else if (faceTexelPosition.x * xGradient * cameraHeightRatio > faceTexelPosition.y + 1.0) {
             discard;
         } else if (faceTexelPosition.x * xGradient * cameraHeightRatio2 > -faceTexelPosition.y + 1.0) {
             discard;
