@@ -277,8 +277,6 @@ postCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     }
 
     vec3 getItemCenter() {
-        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
-
         return vec3(
             postOffset,
             0,
@@ -332,7 +330,6 @@ postTopCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     }
 
     vec3 getItemCenter() {
-        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
         vec2 size = getItemSize();
 
         return vec3(
@@ -384,8 +381,6 @@ postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
     }
 
     vec3 getItemCenter() {
-        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
-
         return vec3(
             postOffset + postWidth * 0.5 - postRadius - postStem - postLightWidth * 0.5,
             0,
