@@ -396,7 +396,7 @@ postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
 
 fenceCmd = roadItemCommand(50.0, `
     float getBatchSize() {
-        return 50.0;
+        return fenceBatchSize;
     }
 
     float getItemOffset() {
@@ -539,14 +539,14 @@ function renderSegments(segmentList, cb) {
     });
 }
 
-function renderLights(segmentList, cb) {
+function renderSegmentItems(itemSpacing, itemBatchSize, segmentList, cb) {
     renderSegments(segmentList, function (
         segmentOffset,
         segmentLength,
         segmentCurve,
         segment
     ) {
-        const count = Math.ceil(segmentLength / (ROAD_SETTINGS.lightSpacing * ROAD_SETTINGS.lightBatchSize));
+        const count = Math.ceil(segmentLength / (itemSpacing * itemBatchSize));
 
         for (let i = 0; i < count; i += 1) {
             cb(
@@ -624,7 +624,7 @@ const timer = new Timer(STEP, 0, function () {
         });
     });
 
-    renderLights(segmentList, function (
+    renderSegmentItems(ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, segmentList, function (
         segmentOffset,
         segmentLength,
         segmentCurve,
@@ -641,7 +641,7 @@ const timer = new Timer(STEP, 0, function () {
         });
     });
 
-    renderLights(segmentList, function (
+    renderSegmentItems(ROAD_SETTINGS.fenceSpacing, ROAD_SETTINGS.fenceBatchSize, segmentList, function (
         segmentOffset,
         segmentLength,
         segmentCurve,
@@ -658,7 +658,7 @@ const timer = new Timer(STEP, 0, function () {
         });
     });
 
-    renderLights(segmentList, function (
+    renderSegmentItems(ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, segmentList, function (
         segmentOffset,
         segmentLength,
         segmentCurve,
@@ -675,7 +675,7 @@ const timer = new Timer(STEP, 0, function () {
         });
     });
 
-    renderLights(segmentList, function (
+    renderSegmentItems(ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, segmentList, function (
         segmentOffset,
         segmentLength,
         segmentCurve,
