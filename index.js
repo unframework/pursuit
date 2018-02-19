@@ -175,7 +175,6 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             uniform float segmentOffset;
             uniform float segmentLength;
             uniform vec3 segmentCurve;
-            uniform float segmentFullLength;
             uniform int batchIndex;
             uniform float cameraOffset;
             uniform mat4 camera;
@@ -245,7 +244,6 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             segmentOffset: regl.prop('segmentOffset'),
             segmentLength: regl.prop('segmentLength'),
             segmentCurve: regl.prop('segmentCurve'),
-            segmentFullLength: regl.prop('segmentFullLength'),
             batchIndex: regl.prop('batchIndex'),
             cameraOffset: regl.prop('cameraOffset'),
             camera: regl.prop('camera')
@@ -637,7 +635,6 @@ const timer = new Timer(STEP, 0, function () {
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
             segmentCurve: segmentCurve,
-            segmentFullLength: segment.length,
             batchIndex: i,
             cameraOffset: offset,
             camera: camera
@@ -655,7 +652,6 @@ const timer = new Timer(STEP, 0, function () {
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
             segmentCurve: segmentCurve,
-            segmentFullLength: segment.length,
             batchIndex: i,
             cameraOffset: offset,
             camera: camera
@@ -673,7 +669,6 @@ const timer = new Timer(STEP, 0, function () {
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
             segmentCurve: segmentCurve,
-            segmentFullLength: segment.length,
             batchIndex: i,
             cameraOffset: offset,
             camera: camera
@@ -691,7 +686,6 @@ const timer = new Timer(STEP, 0, function () {
             segmentOffset: segmentOffset,
             segmentLength: segmentLength,
             segmentCurve: segmentCurve,
-            segmentFullLength: segment.length,
             batchIndex: i,
             cameraOffset: offset,
             camera: camera
