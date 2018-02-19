@@ -45,7 +45,8 @@ div.appendChild(document.createTextNode('@line_ctrl'));
 document.body.appendChild(div);
 
 const regl = require('regl')({
-    canvas: canvas
+    canvas: canvas,
+    attributes: { antialias: false }
 });
 
 roadCmd = regl({
@@ -181,11 +182,15 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             uniform float segmentCurvature;
             uniform float segmentFullLength;
             uniform int batchIndex;
+            uniform float cameraOffset;
             uniform mat4 camera;
 
             attribute vec3 position;
 
             varying vec2 facePosition;
+            varying float xOffset;
+            varying float depth;
+            varying float segmentDepth;
 
             ${itemPlacement}
 
@@ -195,17 +200,19 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
 
                 float segmentItemIndex = segmentStartItemIndex + float(batchIndex) * getBatchSize() + position.z;
                 float viewPlanePositionY = segmentItemIndex * getItemSpacing() + getItemOffset();
-                float xOffset = computeSegmentX(viewPlanePositionY, segmentOffset, segmentCurvature, segmentX, segmentDX);
+                xOffset = computeSegmentX(viewPlanePositionY, segmentOffset, segmentCurvature, segmentX, segmentDX);
+                segmentDepth = viewPlanePositionY - segmentOffset;
 
                 facePosition = position.xy;
+                depth = viewPlanePositionY - cameraOffset;
 
-                vec2 size = getItemSize();
+                vec2 itemSize = getItemSize();
 
                 gl_Position = camera * vec4(
                     getItemCenter() + vec3(
-                        position.x * size.x + xOffset,
+                        position.x * itemSize.x + xOffset,
                         segmentItemIndex < nextSegmentStartItemIndex ? viewPlanePositionY : -1.0,
-                        position.y * size.y
+                        position.y * itemSize.y
                     ),
                     1.0
                 );
@@ -218,6 +225,9 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             #pragma glslify: roadSettings = require('./roadSettings')
 
             varying vec2 facePosition;
+            varying float xOffset;
+            varying float depth;
+            varying float segmentDepth;
 
             ${itemFrag}
         `,
@@ -244,6 +254,7 @@ function roadItemCommand(itemCount, itemPlacement, itemFrag) {
             segmentCurvature: regl.prop('segmentCurvature'),
             segmentFullLength: regl.prop('segmentFullLength'),
             batchIndex: regl.prop('batchIndex'),
+            cameraOffset: regl.prop('cameraOffset'),
             camera: regl.prop('camera')
         },
 
@@ -394,6 +405,72 @@ postLightCmd = roadItemCommand(ROAD_SETTINGS.lightBatchSize, `
             postLightColor,
             1.0
         );
+    }
+`);
+
+fenceCmd = roadItemCommand(50.0, `
+    float getBatchSize() {
+        return 50.0;
+    }
+
+    float getItemOffset() {
+        return 6.0; // right after the light post to avoid overlapping it
+    }
+
+    float getItemSpacing() {
+        return fenceSpacing;
+    }
+
+    vec3 getItemCenter() {
+        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
+
+        return vec3(
+            roadHalfWidth,
+            0,
+            fenceHeight * 0.5
+        );
+    }
+
+    vec2 getItemSize() {
+        float roadHalfWidth = (roadLaneWidth * 3.0 + roadShoulderWidth * 2.0) * 0.5;
+
+        float xOffsetDelta = computeSegmentDX(fenceSpacing, segmentDepth, segmentCurvature, segmentDX);
+
+        float visibleSideWidth = (roadHalfWidth + xOffset) * fenceSpacing / (depth + fenceSpacing);
+        float visibleCurvatureAdjustment = xOffsetDelta * depth / (depth + fenceSpacing);
+
+        return vec2(
+            clamp(visibleSideWidth - visibleCurvatureAdjustment + 0.1, 0.5, 10000.0),
+            fenceHeight * 0.5
+        );
+    }
+`, `
+
+    #define texelSize 0.05
+
+    void main() {
+        vec2 surfacePosition = facePosition * vec2(1.0, fenceHeight * 0.5);
+        surfacePosition -= mod(surfacePosition, texelSize);
+        vec2 faceTexelPosition = surfacePosition / vec2(1.0, fenceHeight * 0.5);
+
+        float depthRatio = depth / (depth + fenceSpacing);
+        float xGradient = depthRatio - 1.0;
+
+        float cameraHeightRatio = 1.0 / (fenceHeight * 0.5);
+        float cameraHeightRatio2 = (fenceHeight - 1.0) / (fenceHeight * 0.5);
+
+        gl_FragColor = vec4(
+            0.55 + faceTexelPosition.x * 0.4, 0.6, 0.6,
+            1.0
+        );
+
+        if (facePosition.x > 0.0) {
+            discard;
+        } else if (faceTexelPosition.x * xGradient * cameraHeightRatio > faceTexelPosition.y + 1.0 + cameraHeightRatio * texelSize) {
+            discard;
+        } else if (faceTexelPosition.x * xGradient * cameraHeightRatio2 > -faceTexelPosition.y + 1.0) {
+            discard;
+        }
     }
 `);
 
@@ -575,6 +652,7 @@ const timer = new Timer(STEP, 0, function () {
             segmentDX: segmentDX,
             segmentFullLength: segment.length,
             batchIndex: i,
+            cameraOffset: offset,
             camera: camera
         });
     });
@@ -596,6 +674,7 @@ const timer = new Timer(STEP, 0, function () {
             segmentDX: segmentDX,
             segmentFullLength: segment.length,
             batchIndex: i,
+            cameraOffset: offset,
             camera: camera
         });
     });
@@ -617,6 +696,29 @@ const timer = new Timer(STEP, 0, function () {
             segmentDX: segmentDX,
             segmentFullLength: segment.length,
             batchIndex: i,
+            cameraOffset: offset,
+            camera: camera
+        });
+    });
+
+    renderLights(segmentList, function (
+        segmentOffset,
+        segmentLength,
+        segmentX,
+        segmentDX,
+        segmentCurvature,
+        segment,
+        i
+    ) {
+        fenceCmd({
+            segmentOffset: segmentOffset,
+            segmentLength: segmentLength,
+            segmentCurvature: segmentCurvature,
+            segmentX: segmentX,
+            segmentDX: segmentDX,
+            segmentFullLength: segment.length,
+            batchIndex: i,
+            cameraOffset: offset,
             camera: camera
         });
     });

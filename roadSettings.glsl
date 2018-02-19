@@ -17,6 +17,9 @@
 #define lightSpacing 100.0
 #define lightOffset 5.0
 
+#define fenceSpacing 10.0
+#define fenceHeight 3.0
+
 void roadSettings() {}
 
 #pragma glslify: export(roadSettings)
