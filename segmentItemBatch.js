@@ -1,7 +1,7 @@
 const glsl = require('glslify');
 
-function createSegmentItemBatchCommand(regl, itemCount, itemPlacement, itemFrag) {
-    return regl({
+function getSegmentItemBatchDefinition(regl, itemCount, itemPlacement, itemFrag) {
+    return {
         vert: glsl`
             precision mediump float;
 
@@ -15,14 +15,12 @@ function createSegmentItemBatchCommand(regl, itemCount, itemPlacement, itemFrag)
             uniform float batchSize;
             uniform float batchItemSpacing;
 
-            uniform float cameraOffset;
             uniform mat4 camera;
 
             attribute vec3 position;
 
             varying vec2 facePosition;
             varying float xOffset;
-            varying float depth;
             varying float segmentDepth;
 
             ${itemPlacement}
@@ -37,7 +35,6 @@ function createSegmentItemBatchCommand(regl, itemCount, itemPlacement, itemFrag)
                 xOffset = computeSegmentX(segmentDepth, segmentCurve);
 
                 facePosition = position.xy;
-                depth = viewPlanePositionY - cameraOffset;
 
                 vec2 itemSize = getItemSize();
 
@@ -57,13 +54,12 @@ function createSegmentItemBatchCommand(regl, itemCount, itemPlacement, itemFrag)
 
             varying vec2 facePosition;
             varying float xOffset;
-            varying float depth;
             varying float segmentDepth;
 
             ${itemFrag}
         `,
 
-        attributes: {
+        attributes: { // @todo pre-make when creating the renderer
             position: regl.buffer([
                 Array.apply(null, new Array(itemCount)).map((noop, index) => [
                     [ -1, -1, index ],
@@ -77,36 +73,38 @@ function createSegmentItemBatchCommand(regl, itemCount, itemPlacement, itemFrag)
             ])
         },
 
+        primitive: 'triangle strip',
+        count: itemCount * 6
+    };
+}
+
+function createSegmentItemBatchRenderer(regl) {
+    const scopeCommand = regl({
         uniforms: {
             batchIndex: regl.prop('batchIndex'),
             batchSize: regl.prop('batchSize'),
             batchItemSpacing: regl.prop('batchItemSpacing'),
 
-            cameraOffset: regl.prop('cameraOffset'),
             camera: regl.prop('camera')
-        },
-
-        primitive: 'triangle strip',
-        count: itemCount * 6
+        }
     });
-}
 
-function renderSegmentItems(segmentLength, itemSpacing, itemBatchSize, itemCommand, cameraOffset, camera) {
-    const count = Math.ceil(segmentLength / (itemSpacing * itemBatchSize));
+    return function (segmentLength, itemSpacing, itemBatchSize, camera, cb) {
+        const count = Math.ceil(segmentLength / (itemSpacing * itemBatchSize));
 
-    for (let i = 0; i < count; i += 1) {
-        itemCommand({
-            batchIndex: i,
-            batchSize: itemBatchSize,
-            batchItemSpacing: itemSpacing,
+        for (let i = 0; i < count; i += 1) {
+            scopeCommand({
+                batchIndex: i,
+                batchSize: itemBatchSize,
+                batchItemSpacing: itemSpacing,
 
-            cameraOffset: cameraOffset,
-            camera: camera
-        });
-    }
+                camera: camera
+            }, cb);
+        }
+    };
 }
 
 module.exports = {
-    createSegmentItemBatchCommand,
-    renderSegmentItems
+    getSegmentItemBatchDefinition,
+    createSegmentItemBatchRenderer
 };
