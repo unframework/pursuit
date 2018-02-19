@@ -447,14 +447,14 @@ fenceCmd = roadItemCommand(50.0, `
 `, `
 
     #define texelSize 0.08
-    #define xGradientPrecision 0.05
+    #define xGradientPrecision 0.1
 
     void main() {
         vec2 surfacePosition = facePosition * vec2(1.0, fenceHeight * 0.5);
         surfacePosition += mod(-surfacePosition, texelSize);
         vec2 faceTexelPosition = surfacePosition / vec2(1.0, fenceHeight * 0.5);
 
-        float depthRatio = clamp(depth / (depth + fenceSpacing), 0.3, 1.0); // clamp the steeper perspective
+        float depthRatio = clamp(depth / (depth + fenceSpacing), 0.5, 1.0); // clamp the steeper perspective
         float xGradient = depthRatio - 1.0;
         xGradient += mod(-xGradient, xGradientPrecision); // quantize up to avoid gap in wall
 
@@ -584,7 +584,11 @@ const CAMERA_HEIGHT = 1.0;
 const DRAW_DISTANCE = 800;
 
 let offset = 0;
-const speed = 90 / 3.6; // km/h to m/s
+const speed = 200 / 3.6; // km/h to m/s
+
+const aspect = canvas.width / canvas.height;
+const fovX = 0.8;
+const fovY = 2.0 * Math.atan(Math.tan(fovX * 0.5) / aspect);
 
 const segmentList = [];
 
@@ -609,7 +613,7 @@ const timer = new Timer(STEP, 0, function () {
         segmentList.shift();
     }
 }, function (now) {
-    mat4.perspective(camera, 0.6, canvas.width / canvas.height, 1, DRAW_DISTANCE);
+    mat4.perspective(camera, fovY, aspect, 1, DRAW_DISTANCE);
 
     // pitch
     mat4.rotateX(camera, camera, -Math.PI / 2);
