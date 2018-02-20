@@ -163,7 +163,7 @@ roadCmd = regl({
     count: 4
 });
 
-postCmd = regl(getSegmentItemBatchDefinition(regl, ROAD_SETTINGS.lightBatchSize, glsl`
+postCmd = regl(getSegmentItemBatchDefinition(glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
     float getItemOffset() {
@@ -205,7 +205,7 @@ postCmd = regl(getSegmentItemBatchDefinition(regl, ROAD_SETTINGS.lightBatchSize,
     }
 `));
 
-postTopCmd = regl(getSegmentItemBatchDefinition(regl, ROAD_SETTINGS.lightBatchSize, glsl`
+postTopCmd = regl(getSegmentItemBatchDefinition(glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
     float getItemOffset() {
@@ -259,7 +259,7 @@ postTopCmd = regl(getSegmentItemBatchDefinition(regl, ROAD_SETTINGS.lightBatchSi
     }
 `));
 
-postLightCmd = regl(getSegmentItemBatchDefinition(regl, ROAD_SETTINGS.lightBatchSize, glsl`
+postLightCmd = regl(getSegmentItemBatchDefinition(glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
     float getItemOffset() {
@@ -295,7 +295,7 @@ fenceCmd = regl(Object.assign({
     uniforms: {
         cameraOffset: regl.prop('cameraOffset')
     }
-}, getSegmentItemBatchDefinition(regl, ROAD_SETTINGS.fenceBatchSize, glsl`
+}, getSegmentItemBatchDefinition(glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
     uniform float cameraOffset;
@@ -431,7 +431,8 @@ const fovY = 2.0 * Math.atan(Math.tan(fovX * 0.5) / aspect);
 const segmentList = [];
 
 const segmentRenderer = createSegmentRenderer(regl);
-const segmentItemBatchRenderer = createSegmentItemBatchRenderer(regl);
+const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, ROAD_SETTINGS.lightSpacing, 5);
+const fenceSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, ROAD_SETTINGS.fenceSpacing, 50);
 
 const timer = new Timer(STEP, 0, function () {
     offset += speed * STEP;
@@ -474,23 +475,23 @@ const timer = new Timer(STEP, 0, function () {
     });
 
     segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        segmentItemBatchRenderer(segmentLength, ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, camera, function () {
+        lightSegmentItemBatchRenderer(segmentLength, camera, function () {
             postCmd();
         });
     });
     segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        segmentItemBatchRenderer(segmentLength, ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, camera, function () {
+        lightSegmentItemBatchRenderer(segmentLength, camera, function () {
             postTopCmd();
         });
     });
     segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        segmentItemBatchRenderer(segmentLength, ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightBatchSize, camera, function () {
+        lightSegmentItemBatchRenderer(segmentLength, camera, function () {
             postLightCmd();
         });
     });
 
     segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        segmentItemBatchRenderer(segmentLength, ROAD_SETTINGS.fenceSpacing, ROAD_SETTINGS.fenceBatchSize, camera, function () {
+        fenceSegmentItemBatchRenderer(segmentLength, camera, function () {
             fenceCmd({
                 cameraOffset: offset
             });

@@ -13,11 +13,9 @@
 #define postLightHeight 0.3
 #define postLightColor vec3(1.0, 0.9, 0.4)
 
-#define lightBatchSize 5.0
 #define lightSpacing 100.0
 #define lightOffset 5.0
 
-#define fenceBatchSize 50.0
 #define fenceSpacing 10.0
 #define fenceHeight 3.0
 #define fenceXOffset 7.5

@@ -1,6 +1,6 @@
 const glsl = require('glslify');
 
-function getSegmentItemBatchDefinition(regl, itemCount, itemPlacement, itemFrag) {
+function getSegmentItemBatchDefinition(itemPlacement, itemFrag) {
     return {
         vert: glsl`
             precision mediump float;
@@ -57,11 +57,23 @@ function getSegmentItemBatchDefinition(regl, itemCount, itemPlacement, itemFrag)
             varying float segmentDepth;
 
             ${itemFrag}
-        `,
+        `
+    };
+}
 
-        attributes: { // @todo pre-make when creating the renderer
+function createSegmentItemBatchRenderer(regl, itemSpacing, itemBatchSize) {
+    const scopeCommand = regl({
+        uniforms: {
+            batchIndex: regl.prop('batchIndex'),
+            batchSize: regl.prop('batchSize'),
+            batchItemSpacing: regl.prop('batchItemSpacing'),
+
+            camera: regl.prop('camera')
+        },
+
+        attributes: {
             position: regl.buffer([
-                Array.apply(null, new Array(itemCount)).map((noop, index) => [
+                Array.apply(null, new Array(itemBatchSize)).map((noop, index) => [
                     [ -1, -1, index ],
                     [ 1, -1, index ],
                     [ -1, 1, index ],
@@ -74,22 +86,10 @@ function getSegmentItemBatchDefinition(regl, itemCount, itemPlacement, itemFrag)
         },
 
         primitive: 'triangle strip',
-        count: itemCount * 6
-    };
-}
-
-function createSegmentItemBatchRenderer(regl) {
-    const scopeCommand = regl({
-        uniforms: {
-            batchIndex: regl.prop('batchIndex'),
-            batchSize: regl.prop('batchSize'),
-            batchItemSpacing: regl.prop('batchItemSpacing'),
-
-            camera: regl.prop('camera')
-        }
+        count: itemBatchSize * 6
     });
 
-    return function (segmentLength, itemSpacing, itemBatchSize, camera, cb) {
+    return function (segmentLength, camera, cb) {
         const count = Math.ceil(segmentLength / (itemSpacing * itemBatchSize));
 
         for (let i = 0; i < count; i += 1) {
