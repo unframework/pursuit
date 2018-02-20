@@ -163,14 +163,18 @@ roadCmd = regl({
     count: 4
 });
 
-postCmd = regl(getSegmentItemBatchDefinition(glsl`
+postCmd = regl({ context: { batchItem: { vert: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
-    float getItemOffset() {
+    void batchItemSetup() {
+        // no-op
+    }
+
+    float batchItemOffset() {
         return lightOffset;
     }
 
-    vec3 getItemCenter() {
+    vec3 batchItemCenter() {
         return vec3(
             postOffset,
             0,
@@ -178,13 +182,15 @@ postCmd = regl(getSegmentItemBatchDefinition(glsl`
         );
     }
 
-    vec2 getItemSize() {
+    vec2 batchItemSize() {
         return vec2(
             postWidth,
             postHeight - postRadius
         ) * 0.5;
     }
-`, glsl`
+
+    #pragma glslify: export(batchItemSetup)
+`, frag: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
     void main() {
@@ -203,24 +209,28 @@ postCmd = regl(getSegmentItemBatchDefinition(glsl`
             discard;
         }
     }
-`));
+` } } });
 
-postTopCmd = regl(getSegmentItemBatchDefinition(glsl`
+postTopCmd = regl({ context: { batchItem: { vert: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
-    float getItemOffset() {
+    void batchItemSetup() {
+        // no-op
+    }
+
+    float batchItemOffset() {
         return lightOffset;
     }
 
-    vec2 getItemSize() {
+    vec2 batchItemSize() {
         return vec2(
             postRadius + postStem,
             postRadius
         ) * 0.5;
     }
 
-    vec3 getItemCenter() {
-        vec2 size = getItemSize();
+    vec3 batchItemCenter() {
+        vec2 size = batchItemSize();
 
         return vec3(
             postOffset + postWidth * 0.5,
@@ -232,7 +242,9 @@ postTopCmd = regl(getSegmentItemBatchDefinition(glsl`
             size.y
         );
     }
-`, glsl`
+
+    #pragma glslify: export(batchItemSetup)
+`, frag: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
     void main() {
@@ -257,16 +269,20 @@ postTopCmd = regl(getSegmentItemBatchDefinition(glsl`
             discard;
         }
     }
-`));
+` } } });
 
-postLightCmd = regl(getSegmentItemBatchDefinition(glsl`
+postLightCmd = regl({ context: { batchItem: { vert: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
-    float getItemOffset() {
+    void batchItemSetup() {
+        // no-op
+    }
+
+    float batchItemOffset() {
         return lightOffset;
     }
 
-    vec3 getItemCenter() {
+    vec3 batchItemCenter() {
         return vec3(
             postOffset + postWidth * 0.5 - postRadius - postStem - postLightWidth * 0.5,
             0,
@@ -274,13 +290,15 @@ postLightCmd = regl(getSegmentItemBatchDefinition(glsl`
         );
     }
 
-    vec2 getItemSize() {
+    vec2 batchItemSize() {
         return vec2(
             postLightWidth,
             postLightHeight
         ) * 0.5;
     }
-`, glsl`
+
+    #pragma glslify: export(batchItemSetup)
+`, frag: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
     void main() {
@@ -289,24 +307,24 @@ postLightCmd = regl(getSegmentItemBatchDefinition(glsl`
             1.0
         );
     }
-`));
+` } } });
 
-fenceCmd = regl(Object.assign({
-    uniforms: {
-        cameraOffset: regl.prop('cameraOffset')
-    }
-}, getSegmentItemBatchDefinition(glsl`
+fenceCmd = regl({ context: { batchItem: { vert: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
     uniform float cameraOffset;
 
     varying float depth;
 
-    float getItemOffset() {
+    void batchItemSetup() {
+        depth = segmentOffset + segmentDepth - cameraOffset;
+    }
+
+    float batchItemOffset() {
         return 6.0; // right after the light post to avoid overlapping it
     }
 
-    vec3 getItemCenter() {
+    vec3 batchItemCenter() {
         return vec3(
             fenceXOffset,
             0,
@@ -314,9 +332,7 @@ fenceCmd = regl(Object.assign({
         );
     }
 
-    vec2 getItemSize() {
-        depth = segmentOffset + segmentDepth - cameraOffset;
-
+    vec2 batchItemSize() {
         float xOffsetDelta = computeSegmentDX(fenceSpacing, segmentDepth, segmentCurve);
 
         float visibleSideWidth = (fenceXOffset + xOffset) * fenceSpacing / (depth + fenceSpacing);
@@ -327,7 +343,9 @@ fenceCmd = regl(Object.assign({
             fenceHeight * 0.5
         );
     }
-`, glsl`
+
+    #pragma glslify: export(batchItemSetup)
+`, frag: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
     #define texelSize 0.1
@@ -362,7 +380,9 @@ fenceCmd = regl(Object.assign({
             discard;
         }
     }
-`)));
+` } }, uniforms: {
+    cameraOffset: regl.prop('cameraOffset')
+} });
 
 bgCmd = regl({
     vert: glsl`
@@ -475,26 +495,26 @@ const timer = new Timer(STEP, 0, function () {
     });
 
     segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        lightSegmentItemBatchRenderer(segmentLength, camera, function () {
-            postCmd();
+        lightSegmentItemBatchRenderer(segmentLength, camera, function (renderCommand) {
+            postCmd(renderCommand);
         });
     });
     segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        lightSegmentItemBatchRenderer(segmentLength, camera, function () {
-            postTopCmd();
+        lightSegmentItemBatchRenderer(segmentLength, camera, function (renderCommand) {
+            postTopCmd(renderCommand);
         });
     });
     segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        lightSegmentItemBatchRenderer(segmentLength, camera, function () {
-            postLightCmd();
+        lightSegmentItemBatchRenderer(segmentLength, camera, function (renderCommand) {
+            postLightCmd(renderCommand);
         });
     });
 
     segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        fenceSegmentItemBatchRenderer(segmentLength, camera, function () {
+        fenceSegmentItemBatchRenderer(segmentLength, camera, function (renderCommand) {
             fenceCmd({
                 cameraOffset: offset
-            });
+            }, renderCommand);
         });
     });
 });

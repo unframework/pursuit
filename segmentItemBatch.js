@@ -1,11 +1,24 @@
-const glsl = require('glslify');
+const glslifyBundle = require('./node_modules/glslify-bundle'); // avoid triggering the glslify transform regex
 
-function getSegmentItemBatchDefinition(itemPlacement, itemFrag) {
-    return {
-        vert: glsl`
+const CACHE_KEY_PREFIX = `__itembatch_cache${Math.round(Math.random() * 1000000)}`;
+const CACHE_BATCH_VERT_KEY = CACHE_KEY_PREFIX + '_bv';
+const CACHE_BATCH_FRAG_KEY = CACHE_KEY_PREFIX + '_bf';
+
+function importUpstream(upstream, src) {
+    return glslifyBundle([
+        { id: 0, deps: { '__upstream': 1 }, file: 'entry.glsl', source: src, entry: true },
+        { id: 1, deps: {}, file: 'upstream.glsl', source: upstream, entry: false }
+    ]);
+}
+
+function generateVertShader(itemInfo) {
+    return importUpstream(
+        itemInfo.vert,
+        `
             precision mediump float;
 
             #pragma glslify: computeSegmentX = require('./segment')
+            #pragma glslify: batchItemSetup = require('__upstream', batchItemCenter=batchItemCenter, batchItemSize=batchItemSize, batchItemOffset)
 
             uniform float segmentOffset;
             uniform float segmentLength;
@@ -23,10 +36,8 @@ function getSegmentItemBatchDefinition(itemPlacement, itemFrag) {
             varying float xOffset;
             varying float segmentDepth;
 
-            ${itemPlacement}
-
             void main() {
-                float segmentStartItemIndex = ceil((segmentOffset - getItemOffset()) / batchItemSpacing);
+                float segmentStartItemIndex = ceil((segmentOffset - batchItemOffset()) / batchItemSpacing);
                 float nextSegmentStartItemIndex = ceil((segmentOffset + segmentLength - getItemOffset()) / batchItemSpacing);
 
                 float segmentItemIndex = segmentStartItemIndex + float(batchIndex) * batchSize + position.z;
@@ -36,10 +47,10 @@ function getSegmentItemBatchDefinition(itemPlacement, itemFrag) {
 
                 facePosition = position.xy;
 
-                vec2 itemSize = getItemSize();
+                vec2 itemSize = batchItemSize();
 
                 gl_Position = camera * vec4(
-                    getItemCenter() + vec3(
+                    batchItemCenter() + vec3(
                         position.x * itemSize.x + xOffset,
                         segmentItemIndex < nextSegmentStartItemIndex ? viewPlanePositionY : -1.0,
                         position.y * itemSize.y
@@ -47,18 +58,24 @@ function getSegmentItemBatchDefinition(itemPlacement, itemFrag) {
                     1.0
                 );
             }
-        `,
+        `
+    );
+}
 
-        frag: glsl`
+function generateFragShader(itemInfo) {
+    return importUpstream(
+        itemInfo.frag,
+        `
             precision mediump float;
+
+            #pragma glslify: batchItemSetup = require('__upstream', batchItemColor=batchItemColor)
 
             varying vec2 facePosition;
             varying float xOffset;
             varying float segmentDepth;
 
-            ${itemFrag}
         `
-    };
+    );
 }
 
 function createSegmentItemBatchRenderer(regl, itemSpacing, itemBatchSize) {
@@ -89,6 +106,29 @@ function createSegmentItemBatchRenderer(regl, itemSpacing, itemBatchSize) {
         count: itemBatchSize * 6
     });
 
+    const renderCommand = regl({
+        context: {
+            generatedVert: function (context) {
+                const itemInfo = context.batchItem;
+
+                return itemInfo[CACHE_BATCH_VERT_KEY] || (
+                    itemInfo[CACHE_BATCH_VERT_KEY] = generateVertShader(itemInfo)
+                );
+            },
+
+            generatedFrag: function (context) {
+                const itemInfo = context.batchItem;
+
+                return itemInfo[CACHE_BATCH_FRAG_KEY] || (
+                    itemInfo[CACHE_BATCH_FRAG_KEY] = generateFragShader(itemInfo)
+                );
+            }
+        },
+
+        vert: regl.context('vert'),
+        frag: regl.context('frag')
+    });
+
     return function (segmentLength, camera, cb) {
         const count = Math.ceil(segmentLength / (itemSpacing * itemBatchSize));
 
@@ -99,12 +139,13 @@ function createSegmentItemBatchRenderer(regl, itemSpacing, itemBatchSize) {
                 batchItemSpacing: itemSpacing,
 
                 camera: camera
-            }, cb);
+            }, function () {
+                cb(renderCommand);
+            });
         }
     };
 }
 
 module.exports = {
-    getSegmentItemBatchDefinition,
     createSegmentItemBatchRenderer
 };
