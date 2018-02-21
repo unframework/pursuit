@@ -5,12 +5,12 @@ const CACHE_BATCH_VERT_KEY = CACHE_KEY_PREFIX + '_bv';
 const CACHE_BATCH_FRAG_KEY = CACHE_KEY_PREFIX + '_bf';
 
 function generateVertShader(upstream) {
-    // @todo move out batchItemOffset since it should be constant anyway
     return (
         glsl`
             precision mediump float;
 
-            #pragma glslify: computeSegmentX = require('./segment')
+            // upstream code first, to discourage use of internals
+            ${upstream}
 
             uniform float segmentOffset;
             uniform float segmentLength;
@@ -18,6 +18,7 @@ function generateVertShader(upstream) {
 
             uniform int batchIndex;
             uniform float batchSize;
+            uniform float batchItemOffset;
             uniform float batchItemSpacing;
 
             uniform mat4 camera;
@@ -25,30 +26,25 @@ function generateVertShader(upstream) {
             attribute vec3 position;
 
             varying vec2 facePosition;
-            varying float xOffset;
-            varying float segmentDepth;
-
-            ${upstream}
 
             void main() {
-                float segmentStartItemIndex = ceil((segmentOffset - batchItemOffset()) / batchItemSpacing);
-                float nextSegmentStartItemIndex = ceil((segmentOffset + segmentLength - batchItemOffset()) / batchItemSpacing);
+                float segmentStartItemIndex = ceil((segmentOffset - batchItemOffset) / batchItemSpacing);
+                float nextSegmentStartItemIndex = ceil((segmentOffset + segmentLength - batchItemOffset) / batchItemSpacing);
 
                 float segmentItemIndex = segmentStartItemIndex + float(batchIndex) * batchSize + position.z;
-                float viewPlanePositionY = segmentItemIndex * batchItemSpacing + batchItemOffset();
-                segmentDepth = viewPlanePositionY - segmentOffset;
-                xOffset = computeSegmentX(segmentDepth, segmentCurve);
+                float viewPlanePositionY = segmentItemIndex * batchItemSpacing + batchItemOffset;
+                float segmentDepth = viewPlanePositionY - segmentOffset;
 
                 facePosition = position.xy;
 
                 // allow upstream code to prep
-                batchItemSetup();
+                batchItemSetup(segmentOffset, segmentCurve, segmentDepth);
 
-                vec2 itemSize = batchItemSize();
+                vec2 itemSize = batchItemSize(segmentOffset, segmentCurve, segmentDepth);
 
                 gl_Position = camera * vec4(
-                    batchItemCenter() + vec3(
-                        position.x * itemSize.x + xOffset,
+                    batchItemCenter(segmentOffset, segmentCurve, segmentDepth) + vec3(
+                        position.x * itemSize.x,
                         segmentItemIndex < nextSegmentStartItemIndex ? viewPlanePositionY : -1.0,
                         position.y * itemSize.y
                     ),
@@ -65,21 +61,29 @@ function generateFragShader(upstream) {
         glsl`
             precision mediump float;
 
-            varying vec2 facePosition;
-            varying float xOffset;
-            varying float segmentDepth;
-
             ${upstream}
+
+            varying vec2 facePosition;
+
+            void main() {
+                gl_FragColor = batchItemColor(facePosition);
+
+                // hard alpha (discarding after setting frag color, makes a difference in some renderers)
+                if (gl_FragColor.a < 1.0) {
+                    discard;
+                }
+            }
         `
     );
 }
 
-function createSegmentItemBatchRenderer(regl, itemSpacing, itemBatchSize) {
+function createSegmentItemBatchRenderer(regl, itemBatchSize, itemSpacing, itemOffset) {
     const scopeCommand = regl({
         uniforms: {
             batchIndex: regl.prop('batchIndex'),
             batchSize: regl.prop('batchSize'),
             batchItemSpacing: regl.prop('batchItemSpacing'),
+            batchItemOffset: regl.prop('batchItemOffset'),
 
             camera: regl.prop('camera')
         },
@@ -133,6 +137,7 @@ function createSegmentItemBatchRenderer(regl, itemSpacing, itemBatchSize) {
                 batchIndex: i,
                 batchSize: itemBatchSize,
                 batchItemSpacing: itemSpacing,
+                batchItemOffset: itemOffset,
 
                 camera: camera
             }, function () {

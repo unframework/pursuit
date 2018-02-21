@@ -165,24 +165,23 @@ roadCmd = regl({
 
 postCmd = regl({ context: { batchItem: { vert: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
+    #pragma glslify: computeSegmentX = require('./segment')
 
-    void batchItemSetup() {
-        // no-op
+    varying float xOffset;
+
+    void batchItemSetup(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
+        xOffset = computeSegmentX(segmentDepth, segmentCurve);
     }
 
-    float batchItemOffset() {
-        return lightOffset;
-    }
-
-    vec3 batchItemCenter() {
+    vec3 batchItemCenter(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
         return vec3(
-            postOffset,
+            postOffset + xOffset,
             0,
             (postHeight - postRadius) * 0.5
         );
     }
 
-    vec2 batchItemSize() {
+    vec2 batchItemSize(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
         return vec2(
             postWidth,
             postHeight - postRadius
@@ -191,47 +190,42 @@ postCmd = regl({ context: { batchItem: { vert: glsl`
 `, frag: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
-    void main() {
+    vec4 batchItemColor(vec2 facePosition) {
         vec2 relpos = (facePosition * vec2(0.5, 0.5) + vec2(0.5, 0.5));
         vec2 pos = relpos * vec2(postWidth, postHeight);
         pos -= mod(pos, 0.15);
 
         vec2 fadePos = pos / vec2(postWidth, postHeight);
 
-        gl_FragColor = vec4(
+        return vec4(
             (0.2 * (0.15 + fadePos.y * 0.85)) * postLightColor,
-            1.0
+            step(pos.x, postWidth)
         );
-
-        if (pos.x > postWidth) {
-            discard;
-        }
     }
 ` } } });
 
 postTopCmd = regl({ context: { batchItem: { vert: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
+    #pragma glslify: computeSegmentX = require('./segment')
 
-    void batchItemSetup() {
-        // no-op
+    varying float xOffset;
+
+    void batchItemSetup(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
+        xOffset = computeSegmentX(segmentDepth, segmentCurve);
     }
 
-    float batchItemOffset() {
-        return lightOffset;
-    }
-
-    vec2 batchItemSize() {
+    vec2 batchItemSize(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
         return vec2(
             postRadius + postStem,
             postRadius
         ) * 0.5;
     }
 
-    vec3 batchItemCenter() {
-        vec2 size = batchItemSize();
+    vec3 batchItemCenter(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
+        vec2 size = batchItemSize(segmentOffset, segmentCurve, segmentDepth);
 
         return vec3(
-            postOffset + postWidth * 0.5,
+            postOffset + postWidth * 0.5 + xOffset,
             0,
             postHeight
         ) - vec3(
@@ -243,50 +237,44 @@ postTopCmd = regl({ context: { batchItem: { vert: glsl`
 `, frag: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
-    void main() {
+    vec4 batchItemColor(vec2 facePosition) {
         vec2 relpos = (facePosition * vec2(0.5, 0.5) + vec2(0.5, 0.5));
         vec2 pos = relpos * vec2(postRadius + postStem, postRadius);
         pos -= mod(pos, 0.15);
 
         float fade = 1.0 - (pos.x - 0.15) / (postRadius + postStem);
 
-        gl_FragColor = vec4(
-            (0.2 - fade * 0.05) * postLightColor,
-            1.0
-        );
-
         vec2 radial = vec2(max(0.0, pos.x - postStem), pos.y);
         float radiusSq = dot(radial, radial);
         float postLightInner = postRadius - postWidth - 0.05;
 
-        if (radiusSq > postRadius * postRadius) {
-            discard;
-        } else if (radiusSq < postLightInner * postLightInner) {
-            discard;
-        }
+        return vec4(
+            (0.2 - fade * 0.05) * postLightColor,
+            step(radiusSq, postRadius * postRadius)
+                * step(postLightInner * postLightInner, radiusSq)
+        );
     }
 ` } } });
 
 postLightCmd = regl({ context: { batchItem: { vert: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
+    #pragma glslify: computeSegmentX = require('./segment')
 
-    void batchItemSetup() {
-        // no-op
+    varying float xOffset;
+
+    void batchItemSetup(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
+        xOffset = computeSegmentX(segmentDepth, segmentCurve);
     }
 
-    float batchItemOffset() {
-        return lightOffset;
-    }
-
-    vec3 batchItemCenter() {
+    vec3 batchItemCenter(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
         return vec3(
-            postOffset + postWidth * 0.5 - postRadius - postStem - postLightWidth * 0.5,
+            postOffset + postWidth * 0.5 - postRadius - postStem - postLightWidth * 0.5 + xOffset,
             0,
             postHeight - postLightHeight * 0.5
         );
     }
 
-    vec2 batchItemSize() {
+    vec2 batchItemSize(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
         return vec2(
             postLightWidth,
             postLightHeight
@@ -295,8 +283,8 @@ postLightCmd = regl({ context: { batchItem: { vert: glsl`
 `, frag: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
 
-    void main() {
-        gl_FragColor = vec4(
+    vec4 batchItemColor(vec2 facePosition) {
+        return vec4(
             postLightColor,
             1.0
         );
@@ -305,28 +293,27 @@ postLightCmd = regl({ context: { batchItem: { vert: glsl`
 
 fenceCmd = regl({ context: { batchItem: { vert: glsl`
     #pragma glslify: roadSettings = require('./roadSettings')
+    #pragma glslify: computeSegmentX = require('./segment', computeSegmentDX=computeSegmentDX)
 
     uniform float cameraOffset;
 
+    varying float xOffset;
     varying float depth;
 
-    void batchItemSetup() {
+    void batchItemSetup(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
+        xOffset = computeSegmentX(segmentDepth, segmentCurve);
         depth = segmentOffset + segmentDepth - cameraOffset;
     }
 
-    float batchItemOffset() {
-        return 6.0; // right after the light post to avoid overlapping it
-    }
-
-    vec3 batchItemCenter() {
+    vec3 batchItemCenter(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
         return vec3(
-            fenceXOffset,
+            fenceXOffset + xOffset,
             0,
             fenceHeight * 0.5
         );
     }
 
-    vec2 batchItemSize() {
+    vec2 batchItemSize(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
         float xOffsetDelta = computeSegmentDX(fenceSpacing, segmentDepth, segmentCurve);
 
         float visibleSideWidth = (fenceXOffset + xOffset) * fenceSpacing / (depth + fenceSpacing);
@@ -345,7 +332,7 @@ fenceCmd = regl({ context: { batchItem: { vert: glsl`
 
     varying float depth;
 
-    void main() {
+    vec4 batchItemColor(vec2 facePosition) {
         vec2 surfacePosition = facePosition * vec2(1.0, fenceHeight * 0.5);
         surfacePosition += mod(-surfacePosition, texelSize);
         vec2 faceTexelPosition = surfacePosition / vec2(1.0, fenceHeight * 0.5);
@@ -357,20 +344,14 @@ fenceCmd = regl({ context: { batchItem: { vert: glsl`
         float cameraHeightRatio = 1.0 / (fenceHeight * 0.5);
         float cameraHeightRatio2 = (fenceHeight - 1.0) / (fenceHeight * 0.5);
 
-        gl_FragColor = vec4(
+        return vec4(
             0.55 + faceTexelPosition.x * 0.3,
             0.6 + faceTexelPosition.x * 0.3,
             0.7 + faceTexelPosition.x * 0.3,
-            1.0
+            step(facePosition.x, 0.0)
+                * step(faceTexelPosition.x * xGradient * cameraHeightRatio, faceTexelPosition.y + 1.0 - texelSize * 0.5)
+                * step(faceTexelPosition.x * xGradient * cameraHeightRatio2, -faceTexelPosition.y + 1.0 + texelSize * 0.5)
         );
-
-        if (facePosition.x > 0.0) {
-            discard;
-        } else if (faceTexelPosition.x * xGradient * cameraHeightRatio > faceTexelPosition.y + 1.0 - texelSize * 0.5) {
-            discard;
-        } else if (faceTexelPosition.x * xGradient * cameraHeightRatio2 > -faceTexelPosition.y + 1.0 + texelSize * 0.5) {
-            discard;
-        }
     }
 ` } }, uniforms: {
     cameraOffset: regl.prop('cameraOffset')
@@ -443,8 +424,10 @@ const fovY = 2.0 * Math.atan(Math.tan(fovX * 0.5) / aspect);
 const segmentList = [];
 
 const segmentRenderer = createSegmentRenderer(regl);
-const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, ROAD_SETTINGS.lightSpacing, 5);
-const fenceSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, ROAD_SETTINGS.fenceSpacing, 50);
+const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, 5, ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightOffset);
+
+// offset to be right after the light post to avoid overlapping it
+const fenceSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, 50, ROAD_SETTINGS.fenceSpacing, 6);
 
 const timer = new Timer(STEP, 0, function () {
     offset += speed * STEP;
