@@ -291,12 +291,14 @@ postLightCmd = regl({ context: { batchItem: { vert: glsl`
     }
 ` } } });
 
-function createFenceCommand(perspectiveDepth) {
+function createFenceCommand(isLeft, perspectiveDepth) {
     const perspectiveDepthRatio = perspectiveDepth / (perspectiveDepth + ROAD_SETTINGS.fenceSpacing);
 
     return regl({ context: { batchItem: { vert: glsl`
         #pragma glslify: roadSettings = require('./roadSettings')
         #pragma glslify: computeSegmentX = require('./segment', computeSegmentDX=computeSegmentDX)
+
+        #define hFlip ${isLeft ? '-1.0' : '1.0'}
 
         uniform float cameraOffset;
 
@@ -310,7 +312,7 @@ function createFenceCommand(perspectiveDepth) {
 
         vec3 batchItemCenter(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
             return vec3(
-                fenceXOffset + xOffset,
+                hFlip * fenceXOffset + xOffset,
                 0,
                 fenceHeight * 0.5
             );
@@ -319,8 +321,8 @@ function createFenceCommand(perspectiveDepth) {
         vec2 batchItemSize(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
             float xOffsetDelta = computeSegmentDX(fenceSpacing, segmentDepth, segmentCurve);
 
-            float visibleSideWidth = (fenceXOffset + xOffset) * fenceSpacing / (depth + fenceSpacing);
-            float visibleCurvatureAdjustment = xOffsetDelta * depth / (depth + fenceSpacing);
+            float visibleSideWidth = hFlip * (hFlip * fenceXOffset + xOffset) * fenceSpacing / (depth + fenceSpacing);
+            float visibleCurvatureAdjustment = hFlip * xOffsetDelta * depth / (depth + fenceSpacing);
 
             return vec2(
                 clamp(visibleSideWidth - visibleCurvatureAdjustment + 0.1, 0.5, 10000.0),
@@ -332,9 +334,10 @@ function createFenceCommand(perspectiveDepth) {
 
         #define texelSize 0.1
         #define depthRatio ${perspectiveDepthRatio}
+        #define hFlip ${isLeft ? '-1.0' : '1.0'}
 
         vec4 batchItemColor(vec2 facePosition) {
-            vec2 surfacePosition = facePosition * vec2(1.0, fenceHeight * 0.5);
+            vec2 surfacePosition = facePosition * vec2(hFlip * 1.0, fenceHeight * 0.5);
             surfacePosition += mod(-surfacePosition, texelSize);
             vec2 faceTexelPosition = surfacePosition / vec2(1.0, fenceHeight * 0.5);
 
@@ -347,7 +350,7 @@ function createFenceCommand(perspectiveDepth) {
                 0.55 + faceTexelPosition.x * 0.3,
                 0.6 + faceTexelPosition.x * 0.3,
                 0.7 + faceTexelPosition.x * 0.3,
-                step(facePosition.x, 0.0)
+                step(faceTexelPosition.x, 0.0)
                     * step(faceTexelPosition.x * xGradient * cameraHeightRatio, faceTexelPosition.y + 1.0 - texelSize * 0.5)
                     * step(faceTexelPosition.x * xGradient * cameraHeightRatio2, -faceTexelPosition.y + 1.0 + texelSize * 0.5)
             );
@@ -358,10 +361,14 @@ function createFenceCommand(perspectiveDepth) {
 }
 
 // no need for sprite distance closer than 40 because the added transition "pop" is too close and not worth the precision
-const fence40Cmd = createFenceCommand(40);
-const fence80Cmd = createFenceCommand(80);
-const fence160Cmd = createFenceCommand(160);
-const fence1000Cmd = createFenceCommand(1000);
+const fenceL40Cmd = createFenceCommand(true, 40);
+const fenceL80Cmd = createFenceCommand(true, 80);
+const fenceL160Cmd = createFenceCommand(true, 160);
+const fenceL1000Cmd = createFenceCommand(true, 1000);
+const fenceR40Cmd = createFenceCommand(false, 40);
+const fenceR80Cmd = createFenceCommand(false, 80);
+const fenceR160Cmd = createFenceCommand(false, 160);
+const fenceR1000Cmd = createFenceCommand(false, 1000);
 
 bgCmd = regl({
     vert: glsl`
@@ -498,25 +505,49 @@ const timer = new Timer(STEP, 0, function () {
     });
 
     fenceSegmentItemBatchRenderer(segmentList, 0, 40, offset, camera, function (renderCommand) {
-        fence40Cmd({
+        fenceL40Cmd({
             cameraOffset: offset
         }, renderCommand);
     });
 
     fenceSegmentItemBatchRenderer(segmentList, 40, 80, offset, camera, function (renderCommand) {
-        fence80Cmd({
+        fenceL80Cmd({
             cameraOffset: offset
         }, renderCommand);
     });
 
     fenceSegmentItemBatchRenderer(segmentList, 80, 160, offset, camera, function (renderCommand) {
-        fence160Cmd({
+        fenceL160Cmd({
             cameraOffset: offset
         }, renderCommand);
     });
 
     fenceSegmentItemBatchRenderer(segmentList, 160, DRAW_DISTANCE, offset, camera, function (renderCommand) {
-        fence1000Cmd({
+        fenceL1000Cmd({
+            cameraOffset: offset
+        }, renderCommand);
+    });
+
+    fenceSegmentItemBatchRenderer(segmentList, 0, 40, offset, camera, function (renderCommand) {
+        fenceR40Cmd({
+            cameraOffset: offset
+        }, renderCommand);
+    });
+
+    fenceSegmentItemBatchRenderer(segmentList, 40, 80, offset, camera, function (renderCommand) {
+        fenceR80Cmd({
+            cameraOffset: offset
+        }, renderCommand);
+    });
+
+    fenceSegmentItemBatchRenderer(segmentList, 80, 160, offset, camera, function (renderCommand) {
+        fenceR160Cmd({
+            cameraOffset: offset
+        }, renderCommand);
+    });
+
+    fenceSegmentItemBatchRenderer(segmentList, 160, DRAW_DISTANCE, offset, camera, function (renderCommand) {
+        fenceR1000Cmd({
             cameraOffset: offset
         }, renderCommand);
     });
