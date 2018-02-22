@@ -429,9 +429,7 @@ const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(
     segmentRenderer,
     5,
     ROAD_SETTINGS.lightSpacing,
-    ROAD_SETTINGS.lightOffset,
-    0,
-    DRAW_DISTANCE
+    ROAD_SETTINGS.lightOffset
 );
 
 // offset to be right after the light post to avoid overlapping it
@@ -440,9 +438,7 @@ const fenceSegmentItemBatchRenderer = createSegmentItemBatchRenderer(
     segmentRenderer,
     50,
     ROAD_SETTINGS.fenceSpacing,
-    6,
-    0,
-    DRAW_DISTANCE
+    6
 );
 
 const timer = new Timer(STEP, 0, function () {
@@ -485,17 +481,17 @@ const timer = new Timer(STEP, 0, function () {
         });
     });
 
-    lightSegmentItemBatchRenderer(segmentList, offset, camera, function (renderCommand) {
+    lightSegmentItemBatchRenderer(segmentList, 0, DRAW_DISTANCE, offset, camera, function (renderCommand) {
         postCmd(renderCommand);
     });
-    lightSegmentItemBatchRenderer(segmentList, offset, camera, function (renderCommand) {
+    lightSegmentItemBatchRenderer(segmentList, 0, DRAW_DISTANCE, offset, camera, function (renderCommand) {
         postTopCmd(renderCommand);
     });
-    lightSegmentItemBatchRenderer(segmentList, offset, camera, function (renderCommand) {
+    lightSegmentItemBatchRenderer(segmentList, 0, DRAW_DISTANCE, offset, camera, function (renderCommand) {
         postLightCmd(renderCommand);
     });
 
-    fenceSegmentItemBatchRenderer(segmentList, offset, camera, function (renderCommand) {
+    fenceSegmentItemBatchRenderer(segmentList, 0, DRAW_DISTANCE, offset, camera, function (renderCommand) {
         fenceCmd({
             cameraOffset: offset
         }, renderCommand);

@@ -83,7 +83,7 @@ function generateFragShader(upstream) {
     );
 }
 
-function createSegmentItemBatchRenderer(regl, segmentRenderer, itemBatchSize, itemSpacing, itemOffset, minDepth, maxDepth) {
+function createSegmentItemBatchRenderer(regl, segmentRenderer, itemBatchSize, itemSpacing, itemOffset) {
     const scopeCommand = regl({
         uniforms: {
             batchIndex: regl.prop('batchIndex'),
@@ -138,7 +138,7 @@ function createSegmentItemBatchRenderer(regl, segmentRenderer, itemBatchSize, it
         frag: regl.context('generatedFrag')
     });
 
-    return function (segmentList, offset, camera, cb) {
+    return function (segmentList, minDepth, maxDepth, offset, camera, cb) {
         const itemBatchLength = itemSpacing * itemBatchSize;
         const visibleMinDepth = offset + minDepth;
         const visibleMaxDepth = offset + maxDepth;
