@@ -424,10 +424,10 @@ const fovY = 2.0 * Math.atan(Math.tan(fovX * 0.5) / aspect);
 const segmentList = [];
 
 const segmentRenderer = createSegmentRenderer(regl);
-const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, 5, ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightOffset);
+const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, segmentRenderer, 5, ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightOffset);
 
 // offset to be right after the light post to avoid overlapping it
-const fenceSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, 50, ROAD_SETTINGS.fenceSpacing, 6);
+const fenceSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, segmentRenderer, 50, ROAD_SETTINGS.fenceSpacing, 6);
 
 const timer = new Timer(STEP, 0, function () {
     offset += speed * STEP;
@@ -469,27 +469,19 @@ const timer = new Timer(STEP, 0, function () {
         });
     });
 
-    segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        lightSegmentItemBatchRenderer(segmentLength, camera, function (renderCommand) {
-            postCmd(renderCommand);
-        });
+    lightSegmentItemBatchRenderer(segmentList, offset, camera, function (renderCommand) {
+        postCmd(renderCommand);
     });
-    segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        lightSegmentItemBatchRenderer(segmentLength, camera, function (renderCommand) {
-            postTopCmd(renderCommand);
-        });
+    lightSegmentItemBatchRenderer(segmentList, offset, camera, function (renderCommand) {
+        postTopCmd(renderCommand);
     });
-    segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        lightSegmentItemBatchRenderer(segmentLength, camera, function (renderCommand) {
-            postLightCmd(renderCommand);
-        });
+    lightSegmentItemBatchRenderer(segmentList, offset, camera, function (renderCommand) {
+        postLightCmd(renderCommand);
     });
 
-    segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
-        fenceSegmentItemBatchRenderer(segmentLength, camera, function (renderCommand) {
-            fenceCmd({
-                cameraOffset: offset
-            }, renderCommand);
-        });
+    fenceSegmentItemBatchRenderer(segmentList, offset, camera, function (renderCommand) {
+        fenceCmd({
+            cameraOffset: offset
+        }, renderCommand);
     });
 });

@@ -77,7 +77,7 @@ function generateFragShader(upstream) {
     );
 }
 
-function createSegmentItemBatchRenderer(regl, itemBatchSize, itemSpacing, itemOffset) {
+function createSegmentItemBatchRenderer(regl, segmentRenderer, itemBatchSize, itemSpacing, itemOffset) {
     const scopeCommand = regl({
         uniforms: {
             batchIndex: regl.prop('batchIndex'),
@@ -129,21 +129,25 @@ function createSegmentItemBatchRenderer(regl, itemBatchSize, itemSpacing, itemOf
         frag: regl.context('generatedFrag')
     });
 
-    return function (segmentLength, camera, cb) {
-        const count = Math.ceil(segmentLength / (itemSpacing * itemBatchSize));
+    return function (segmentList, offset, camera, cb) {
+        const itemBatchLength = itemSpacing * itemBatchSize;
 
-        for (let i = 0; i < count; i += 1) {
-            scopeCommand({
-                batchIndex: i,
-                batchSize: itemBatchSize,
-                batchItemSpacing: itemSpacing,
-                batchItemOffset: itemOffset,
+        segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
+            const count = Math.ceil(segmentLength / itemBatchLength);
 
-                camera: camera
-            }, function () {
-                cb(renderCommand);
-            });
-        }
+            for (let i = 0; i < count; i += 1) {
+                scopeCommand({
+                    batchIndex: i,
+                    batchSize: itemBatchSize,
+                    batchItemSpacing: itemSpacing,
+                    batchItemOffset: itemOffset,
+
+                    camera: camera
+                }, function () {
+                    cb(renderCommand);
+                });
+            }
+        });
     };
 }
 
