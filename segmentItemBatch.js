@@ -21,6 +21,9 @@ function generateVertShader(upstream) {
             uniform float batchItemOffset;
             uniform float batchItemSpacing;
 
+            uniform float visibleMinDepth;
+            uniform float visibleMaxDepth;
+
             uniform mat4 camera;
 
             attribute vec3 position;
@@ -45,7 +48,10 @@ function generateVertShader(upstream) {
                 gl_Position = camera * vec4(
                     batchItemCenter(segmentOffset, segmentCurve, segmentDepth) + vec3(
                         position.x * itemSize.x,
-                        segmentItemIndex < nextSegmentStartItemIndex ? viewPlanePositionY : -1.0,
+                        viewPlanePositionY
+                            * step(visibleMinDepth, viewPlanePositionY) // hide if too close
+                            * step(viewPlanePositionY, visibleMaxDepth) // hide if too far
+                            * step(segmentItemIndex, nextSegmentStartItemIndex - 0.5), // stop before next segment (exclusive range)
                         position.y * itemSize.y
                     ),
                     1.0
@@ -77,13 +83,16 @@ function generateFragShader(upstream) {
     );
 }
 
-function createSegmentItemBatchRenderer(regl, segmentRenderer, itemBatchSize, itemSpacing, itemOffset) {
+function createSegmentItemBatchRenderer(regl, segmentRenderer, itemBatchSize, itemSpacing, itemOffset, minDepth, maxDepth) {
     const scopeCommand = regl({
         uniforms: {
             batchIndex: regl.prop('batchIndex'),
             batchSize: regl.prop('batchSize'),
             batchItemSpacing: regl.prop('batchItemSpacing'),
             batchItemOffset: regl.prop('batchItemOffset'),
+
+            visibleMinDepth: regl.prop('visibleMinDepth'),
+            visibleMaxDepth: regl.prop('visibleMaxDepth'),
 
             camera: regl.prop('camera')
         },
@@ -131,8 +140,20 @@ function createSegmentItemBatchRenderer(regl, segmentRenderer, itemBatchSize, it
 
     return function (segmentList, offset, camera, cb) {
         const itemBatchLength = itemSpacing * itemBatchSize;
+        const visibleMinDepth = offset + minDepth;
+        const visibleMaxDepth = offset + maxDepth;
 
         segmentRenderer(segmentList, offset, function (segmentOffset, segmentLength) {
+            // weed out wholesale if out of range
+            if (segmentOffset + segmentLength < visibleMinDepth) {
+                return;
+            }
+
+            if (segmentOffset > visibleMaxDepth) {
+                return;
+            }
+
+            // repeat batch for segment length
             const count = Math.ceil(segmentLength / itemBatchLength);
 
             for (let i = 0; i < count; i += 1) {
@@ -141,6 +162,9 @@ function createSegmentItemBatchRenderer(regl, segmentRenderer, itemBatchSize, it
                     batchSize: itemBatchSize,
                     batchItemSpacing: itemSpacing,
                     batchItemOffset: itemOffset,
+
+                    visibleMinDepth: visibleMinDepth,
+                    visibleMaxDepth: visibleMaxDepth,
 
                     camera: camera
                 }, function () {

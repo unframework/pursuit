@@ -424,10 +424,26 @@ const fovY = 2.0 * Math.atan(Math.tan(fovX * 0.5) / aspect);
 const segmentList = [];
 
 const segmentRenderer = createSegmentRenderer(regl);
-const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, segmentRenderer, 5, ROAD_SETTINGS.lightSpacing, ROAD_SETTINGS.lightOffset);
+const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(
+    regl,
+    segmentRenderer,
+    5,
+    ROAD_SETTINGS.lightSpacing,
+    ROAD_SETTINGS.lightOffset,
+    0,
+    DRAW_DISTANCE
+);
 
 // offset to be right after the light post to avoid overlapping it
-const fenceSegmentItemBatchRenderer = createSegmentItemBatchRenderer(regl, segmentRenderer, 50, ROAD_SETTINGS.fenceSpacing, 6);
+const fenceSegmentItemBatchRenderer = createSegmentItemBatchRenderer(
+    regl,
+    segmentRenderer,
+    50,
+    ROAD_SETTINGS.fenceSpacing,
+    6,
+    0,
+    DRAW_DISTANCE
+);
 
 const timer = new Timer(STEP, 0, function () {
     offset += speed * STEP;

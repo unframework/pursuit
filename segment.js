@@ -16,6 +16,7 @@ function createSegmentRenderer(regl) {
 
     // walk segment list in view and compute visible curve parameters
     // ensuring no part of the segment is "behind" camera (otherwise perspective correction gets busted)
+    // @todo move that setting out?
     return function (segmentList, offset, cb) {
         let x = 0;
         let dx = 0;
