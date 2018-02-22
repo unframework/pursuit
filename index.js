@@ -358,10 +358,10 @@ function createFenceCommand(perspectiveDepth) {
 }
 
 // no need for sprite distance closer than 40 because the added transition "pop" is too close and not worth the precision
-fence40Cmd = createFenceCommand(40);
-fence80Cmd = createFenceCommand(80);
-fence160Cmd = createFenceCommand(160);
-fence1000Cmd = createFenceCommand(1000);
+const fence40Cmd = createFenceCommand(40);
+const fence80Cmd = createFenceCommand(80);
+const fence160Cmd = createFenceCommand(160);
+const fence1000Cmd = createFenceCommand(1000);
 
 bgCmd = regl({
     vert: glsl`
