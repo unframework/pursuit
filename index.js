@@ -386,31 +386,30 @@ bgCmd = regl({
     frag: glsl`
         precision mediump float;
 
+        uniform vec4 topColor;
+        uniform vec4 bottomColor;
         varying vec2 facePosition;
 
         void main() {
             float fade = clamp(1.0 - facePosition.y, 0.0, 1.0);
             float fadeSq = fade * fade;
 
-            gl_FragColor = vec4(
-                0.2 + fadeSq * 0.4,
-                0.6 - fadeSq * 0.4,
-                0.2 + fadeSq * 0.3,
-                1.0
-            );
+            gl_FragColor = mix(topColor, bottomColor, fadeSq);
         }
     `,
 
     attributes: {
         position: regl.buffer([
-            [ -1, -1 ],
-            [ 1, -1 ],
+            [ -1, 0 ],
+            [ 1, 0 ],
             [ 1,  1 ],
             [ -1, 1 ]
         ])
     },
 
     uniforms: {
+        topColor: regl.prop('topColor'),
+        bottomColor: regl.prop('bottomColor')
     },
 
     depth: { func: 'always' },
@@ -433,6 +432,9 @@ const speed = 200 / 3.6; // km/h to m/s
 const aspect = canvas.width / canvas.height;
 const fovX = 0.8;
 const fovY = 2.0 * Math.atan(Math.tan(fovX * 0.5) / aspect);
+
+const bgTopColor = vec4.fromValues(...onecolor('#005555').toJSON().slice(1), 1);
+const bgBottomColor = vec4.fromValues(...onecolor('#ff5555').toJSON().slice(1), 1);
 
 const segmentList = [];
 
@@ -486,6 +488,8 @@ const timer = new Timer(STEP, 0, function () {
     mat4.translate(camera, camera, cameraPosition);
 
     bgCmd({
+        topColor: bgTopColor,
+        bottomColor: bgBottomColor,
     });
 
     segmentRenderer(segmentList, offset, function () {
