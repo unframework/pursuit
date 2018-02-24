@@ -101,6 +101,10 @@ roadCmd = regl({
 
         uniform float segmentOffset;
         uniform vec3 segmentCurve;
+        uniform vec3 roadColor;
+        uniform vec3 roadHighlightColor;
+        uniform vec3 markerColor;
+        uniform vec3 markerHighlightColor;
 
         varying vec2 viewPlanePosition;
 
@@ -113,7 +117,7 @@ roadCmd = regl({
                 viewPlanePosition.y
             );
 
-            float lightPos = 1.5 - 0.5 / (0.5 + abs((mod(segmentPosition.y - lightOffset, lightSpacing) / lightSpacing) - 0.5));
+            float lightDistance = abs((mod(segmentPosition.y - lightOffset, lightSpacing) / lightSpacing) - 0.5) / 0.5;
 
             if (abs(segmentPosition.x) > roadHalfWidth) {
                 float fieldFactor = step(25.0, mod(segmentPosition.y, 50.0));
@@ -131,18 +135,13 @@ roadCmd = regl({
             float notEdgeLane = step(roadMarkerWidth * 0.5, distToEdgeLane);
             float notMarker = notMidLane * notEdgeLane;
 
-            float lightness = (notMarker < 1.0
-                ? (0.3 + lightPos * 0.7)
-                : (0.2 + lightPos * 0.8)
-            );
-
-            float steppedLightness = 0.1 + (floor(lightness * 20.0) * 0.05) * 1.2;
+            float quantLightPos = floor(lightDistance * 3.0 + 0.5) * 0.33;
 
             vec3 color = notMarker < 1.0
-                ? vec3(0.75, 0.87, 0.87)
-                : vec3(0.10, 0.35, 0.35);
+                ? mix(markerColor, markerHighlightColor, quantLightPos)
+                : mix(roadColor, roadHighlightColor, quantLightPos);
 
-            gl_FragColor = vec4(color * steppedLightness, 1.0);
+            gl_FragColor = vec4(color, 1.0);
         }
     `,
 
@@ -156,6 +155,10 @@ roadCmd = regl({
     },
 
     uniforms: {
+        roadColor: regl.prop('roadColor'),
+        roadHighlightColor: regl.prop('roadHighlightColor'),
+        markerColor: regl.prop('markerColor'),
+        markerHighlightColor: regl.prop('markerHighlightColor'),
         camera: regl.prop('camera')
     },
 
@@ -386,15 +389,15 @@ bgCmd = regl({
     frag: glsl`
         precision mediump float;
 
-        uniform vec4 topColor;
-        uniform vec4 bottomColor;
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
         varying vec2 facePosition;
 
         void main() {
             float fade = clamp(1.0 - facePosition.y, 0.0, 1.0);
             float fadeSq = fade * fade;
 
-            gl_FragColor = mix(topColor, bottomColor, fadeSq);
+            gl_FragColor = vec4(mix(topColor, bottomColor, fadeSq), 1.0);
         }
     `,
 
@@ -433,8 +436,12 @@ const aspect = canvas.width / canvas.height;
 const fovX = 0.8;
 const fovY = 2.0 * Math.atan(Math.tan(fovX * 0.5) / aspect);
 
-const bgTopColor = vec4.fromValues(...onecolor('#005555').toJSON().slice(1), 1);
-const bgBottomColor = vec4.fromValues(...onecolor('#ff5555').toJSON().slice(1), 1);
+const bgTopColor = vec3.fromValues(...onecolor('#005555').toJSON().slice(1));
+const bgBottomColor = vec3.fromValues(...onecolor('#ff5555').toJSON().slice(1));
+const roadColor = vec3.fromValues(...onecolor('#555500').toJSON().slice(1));
+const roadHighlightColor = vec3.fromValues(...onecolor('#aa5500').toJSON().slice(1));
+const markerColor = vec3.fromValues(...onecolor('#aaffff').toJSON().slice(1));
+const markerHighlightColor = vec3.fromValues(...onecolor('#ffffff').toJSON().slice(1));
 
 const segmentList = [];
 
@@ -494,6 +501,10 @@ const timer = new Timer(STEP, 0, function () {
 
     segmentRenderer(segmentList, offset, function () {
         roadCmd({
+            roadColor: roadColor,
+            roadHighlightColor: roadHighlightColor,
+            markerColor: markerColor,
+            markerHighlightColor: markerHighlightColor,
             camera: camera
         });
     });
