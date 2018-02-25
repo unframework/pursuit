@@ -22,7 +22,7 @@ function createSegmentRenderer(regl) {
         let dx = 0;
 
         segmentList.forEach(function (segment) {
-            const segmentOffset = Math.max(offset + 3, segment.end - segment.length);
+            const segmentOffset = Math.max(offset + 1, segment.end - segment.length);
             const segmentLength = segment.end - segmentOffset;
 
             // safety check
