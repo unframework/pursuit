@@ -75,7 +75,7 @@ document.body.appendChild(div);
 
 const regl = require('regl')({
     canvas: canvas,
-    attributes: { antialias: false }
+    attributes: { antialias: false, alpha: false }
 });
 
 roadCmd = regl({
@@ -323,17 +323,14 @@ postLightCmd = regl({ context: { batchItem: { vert: glsl`
     }
 ` } } });
 
-function createFenceCommand(isLeft, perspectiveDepth, cameraHeight) {
-    const perspectiveDepthRatio = perspectiveDepth / (perspectiveDepth + ROAD_SETTINGS.fenceSpacing);
-
+function createFenceCommand(spriteTexture, levelCount) {
     return regl({ context: { batchItem: { vert: glsl`
         #pragma glslify: roadSettings = require('./roadSettings')
         #pragma glslify: computeSegmentX = require('./segment', computeSegmentDX=computeSegmentDX)
 
-        #define hFlip ${isLeft ? '-1.0' : '1.0'}
-
         uniform float cameraOffset;
         uniform float cameraSideOffset;
+        uniform float hFlip;
 
         varying float xOffset;
         varying float depth;
@@ -365,31 +362,24 @@ function createFenceCommand(isLeft, perspectiveDepth, cameraHeight) {
     `, frag: glsl`
         #pragma glslify: roadSettings = require('./roadSettings')
 
-        #define texelSize 0.1
-        #define depthRatio ${perspectiveDepthRatio}
-        #define hFlip ${isLeft ? '-1.0' : '1.0'}
-        #define cameraHeight ${cameraHeight + 0.00001}
+        #define levelCount ${levelCount}
+
+        uniform float hFlip;
+        uniform float level;
+        uniform sampler2D sprite;
 
         vec4 batchItemColor(vec2 facePosition) {
-            vec2 surfacePosition = facePosition * vec2(hFlip * 1.0, fenceHeight * 0.5);
-            surfacePosition += mod(-surfacePosition, texelSize);
-            vec2 faceTexelPosition = surfacePosition / vec2(1.0, fenceHeight * 0.5);
+            vec2 spritePos = facePosition * vec2(1.0, 0.5) + vec2(1.0, 0.5);
 
-            float xGradient = depthRatio - 1.0;
-
-            float cameraHeightRatio = cameraHeight / (fenceHeight * 0.5);
-            float cameraHeightRatio2 = (fenceHeight - cameraHeight) / (fenceHeight * 0.5);
-
-            return vec4(
-                0.55 + faceTexelPosition.x * 0.3,
-                0.6 + faceTexelPosition.x * 0.3,
-                0.7 + faceTexelPosition.x * 0.3,
-                step(faceTexelPosition.x, 0.0)
-                    * step(faceTexelPosition.x * xGradient * cameraHeightRatio, faceTexelPosition.y + 1.0 - texelSize * 0.5)
-                    * step(faceTexelPosition.x * xGradient * cameraHeightRatio2, -faceTexelPosition.y + 1.0 + texelSize * 0.5)
+            return texture2D(
+                sprite,
+                (spritePos + vec2(0.0, level)) / vec2(1.0, float(levelCount))
             );
         }
     ` } }, uniforms: {
+        hFlip: regl.prop('hFlip'),
+        level: regl.prop('level'),
+        sprite: spriteTexture,
         cameraOffset: regl.prop('cameraOffset'),
         cameraSideOffset: regl.prop('cameraSideOffset')
     } });
@@ -471,14 +461,37 @@ const markerHighlightColor = vec3.fromValues(...onecolor('#ffffff').toJSON().sli
 const segmentList = [];
 
 // no need for sprite distance closer than 30 because the added transition "pop" is too close and not worth the precision
-const fenceL1Cmd = createFenceCommand(true, 30, CAMERA_HEIGHT);
-const fenceL2Cmd = createFenceCommand(true, 45, CAMERA_HEIGHT);
-const fenceL3Cmd = createFenceCommand(true, 90, CAMERA_HEIGHT);
-const fenceL4Cmd = createFenceCommand(true, 1000, CAMERA_HEIGHT);
-const fenceR1Cmd = createFenceCommand(false, 30, CAMERA_HEIGHT);
-const fenceR2Cmd = createFenceCommand(false, 45, CAMERA_HEIGHT);
-const fenceR3Cmd = createFenceCommand(false, 90, CAMERA_HEIGHT);
-const fenceR4Cmd = createFenceCommand(false, 1000, CAMERA_HEIGHT);
+const fenceTextureW = 16;
+const fenceTextureH = 32;
+const fenceLevels = [ 40, 80, 160, 1000 ];
+
+const fenceCanvas = document.createElement('canvas');
+fenceCanvas.style.position = 'absolute';
+fenceCanvas.style.top = '0px';
+fenceCanvas.style.left = '0px';
+fenceCanvas.style.background = '#f0f';
+document.body.appendChild(fenceCanvas);
+
+fenceCanvas.width = fenceTextureW;
+fenceCanvas.height = fenceTextureH * 4;
+const fenceCtx = fenceCanvas.getContext('2d');
+
+fenceLevels.forEach((level, index) => {
+    fenceCtx.clearRect(0, index * fenceTextureH, fenceTextureW, fenceTextureH);
+
+    fenceCtx.fillStyle = [ '#f00', '#0f0', '#00f', '#0ff' ][index];
+    fenceCtx.fillRect(0, index * fenceTextureH, fenceTextureW, fenceTextureH);
+});
+
+const fenceTexture = regl.texture({
+    width: fenceTextureW,
+    height: fenceTextureH,
+    min: 'nearest',
+    mag: 'nearest',
+    data: fenceCtx
+});
+
+const fenceCmd = createFenceCommand(fenceTexture, fenceLevels.length);
 
 const segmentRenderer = createSegmentRenderer(regl);
 const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(
@@ -556,59 +569,25 @@ const timer = new Timer(STEP, 0, function () {
         postLightCmd(renderCommand);
     });
 
-    fenceSegmentItemBatchRenderer(segmentList, 0, 40, offset, camera, function (renderCommand) {
-        fenceL1Cmd({
-            cameraOffset: offset,
-            cameraSideOffset: sideOffset
-        }, renderCommand);
-    });
+    fenceLevels.forEach((levelDistance, level) => {
+        const prevDistance = level === 0 ? 0 : fenceLevels[level - 1];
 
-    fenceSegmentItemBatchRenderer(segmentList, 40, 80, offset, camera, function (renderCommand) {
-        fenceL2Cmd({
-            cameraOffset: offset,
-            cameraSideOffset: sideOffset
-        }, renderCommand);
-    });
+        fenceSegmentItemBatchRenderer(segmentList, prevDistance, levelDistance, offset, camera, function (renderCommand) {
+            fenceCmd({
+                hFlip: -1,
+                level: level,
+                cameraOffset: offset,
+                cameraSideOffset: sideOffset
+            }, renderCommand);
+        });
 
-    fenceSegmentItemBatchRenderer(segmentList, 80, 160, offset, camera, function (renderCommand) {
-        fenceL3Cmd({
-            cameraOffset: offset,
-            cameraSideOffset: sideOffset
-        }, renderCommand);
-    });
-
-    fenceSegmentItemBatchRenderer(segmentList, 160, DRAW_DISTANCE, offset, camera, function (renderCommand) {
-        fenceL4Cmd({
-            cameraOffset: offset,
-            cameraSideOffset: sideOffset
-        }, renderCommand);
-    });
-
-    fenceSegmentItemBatchRenderer(segmentList, 0, 40, offset, camera, function (renderCommand) {
-        fenceR1Cmd({
-            cameraOffset: offset,
-            cameraSideOffset: sideOffset
-        }, renderCommand);
-    });
-
-    fenceSegmentItemBatchRenderer(segmentList, 40, 80, offset, camera, function (renderCommand) {
-        fenceR2Cmd({
-            cameraOffset: offset,
-            cameraSideOffset: sideOffset
-        }, renderCommand);
-    });
-
-    fenceSegmentItemBatchRenderer(segmentList, 80, 160, offset, camera, function (renderCommand) {
-        fenceR3Cmd({
-            cameraOffset: offset,
-            cameraSideOffset: sideOffset
-        }, renderCommand);
-    });
-
-    fenceSegmentItemBatchRenderer(segmentList, 160, DRAW_DISTANCE, offset, camera, function (renderCommand) {
-        fenceR4Cmd({
-            cameraOffset: offset,
-            cameraSideOffset: sideOffset
-        }, renderCommand);
+        fenceSegmentItemBatchRenderer(segmentList, prevDistance, levelDistance, offset, camera, function (renderCommand) {
+            fenceCmd({
+                hFlip: 1,
+                level: level,
+                cameraOffset: offset,
+                cameraSideOffset: sideOffset
+            }, renderCommand);
+        });
     });
 });
