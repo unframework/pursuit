@@ -323,6 +323,69 @@ postLightCmd = regl({ context: { batchItem: { vert: glsl`
     }
 ` } } });
 
+function createSpriteTexture(textureW, textureH, levels, surfaceDepth, surfaceXOffset) {
+    const spriteCanvas = document.createElement('canvas');
+    spriteCanvas.style.position = 'absolute';
+    spriteCanvas.style.top = '0px';
+    spriteCanvas.style.left = '0px';
+    spriteCanvas.style.background = '#222';
+    // document.body.appendChild(spriteCanvas);
+
+    spriteCanvas.width = textureW;
+    spriteCanvas.height = textureH * levels.length;
+    const spriteCtx = spriteCanvas.getContext('2d');
+
+    const textureWValues = Array(...new Array(textureW)).map((_, index) => index);
+    const textureHValues = Array(...new Array(textureH)).map((_, index) => index);
+
+    levels.forEach((perspectiveDepth, index) => {
+        // @todo use middle of range?
+        const visibleSideRun = surfaceXOffset * surfaceDepth / (perspectiveDepth + surfaceDepth);
+
+        const cameraHeightRatio = CAMERA_HEIGHT / ROAD_SETTINGS.fenceHeight;
+        const cameraHeightRatio2 = 1 - cameraHeightRatio;
+
+        const texelBiasW = 1 / (2 * textureW);
+        const texelBiasH = 1 / (2 * textureH);
+
+        spriteCtx.clearRect(0, index * textureH, textureW, textureH);
+
+        const testColor = [ '#f00', '#0f0', '#00f', '#0ff' ][index];
+
+        textureWValues.forEach(px => {
+            textureHValues.forEach(py => {
+                const faceX = px / textureW + texelBiasW;
+                const faceY = py / textureH + texelBiasH;
+
+                const sideRunPortion = (1 - faceX) * visibleSideRun;
+                const surfaceDepth = sideRunPortion * perspectiveDepth / (surfaceXOffset - sideRunPortion);
+                const surfaceX = surfaceDepth / surfaceDepth;
+                const surfaceY = (faceY - cameraHeightRatio) * (perspectiveDepth + surfaceDepth) / perspectiveDepth + cameraHeightRatio;
+
+                if (surfaceY > 1) {
+                    return;
+                }
+
+                if (surfaceY < 0) {
+                    return;
+                }
+
+                const testIntensity = Math.round(Math.ceil(surfaceX * 4) * 0.25 * 255);
+                spriteCtx.fillStyle = 0.5 * surfaceY * textureH % 2 < 1 ? testColor : `rgb(${testIntensity}, ${testIntensity}, ${testIntensity})`;
+                spriteCtx.fillRect(px, index * textureH + py, 1, 1);
+            });
+        });
+    });
+
+    return regl.texture({
+        width: textureW,
+        height: textureH,
+        min: 'nearest',
+        mag: 'nearest',
+        data: spriteCtx
+    });
+}
+
 function createFenceCommand(spriteTexture, levelCount) {
     return regl({ context: { batchItem: { vert: glsl`
         #pragma glslify: roadSettings = require('./roadSettings')
@@ -465,70 +528,13 @@ const fenceTextureW = 16;
 const fenceTextureH = 32;
 const fenceLevels = [ 40, 80, 160, 1000 ];
 
-const fenceCanvas = document.createElement('canvas');
-fenceCanvas.style.position = 'absolute';
-fenceCanvas.style.top = '0px';
-fenceCanvas.style.left = '0px';
-fenceCanvas.style.background = '#222';
-document.body.appendChild(fenceCanvas);
-
-fenceCanvas.width = fenceTextureW;
-fenceCanvas.height = fenceTextureH * 4;
-const fenceCtx = fenceCanvas.getContext('2d');
-
-const fenceTextureWValues = Array(...new Array(fenceTextureW)).map((_, index) => index);
-const fenceTextureHValues = Array(...new Array(fenceTextureH)).map((_, index) => index);
-
-const fenceSurfaceXOffset = ROAD_SETTINGS.fenceXOffset;
-const fenceSurfaceDepth = ROAD_SETTINGS.fenceSpacing;
-
-fenceLevels.forEach((perspectiveDepth, index) => {
-    // @todo use middle of range?
-    const visibleSideRun = fenceSurfaceXOffset * fenceSurfaceDepth / (perspectiveDepth + fenceSurfaceDepth);
-
-    const cameraHeightRatio = CAMERA_HEIGHT / ROAD_SETTINGS.fenceHeight;
-    const cameraHeightRatio2 = 1 - cameraHeightRatio;
-
-    const texelBiasW = 1 / (2 * fenceTextureW);
-    const texelBiasH = 1 / (2 * fenceTextureH);
-
-    fenceCtx.clearRect(0, index * fenceTextureH, fenceTextureW, fenceTextureH);
-
-    const testColor = [ '#f00', '#0f0', '#00f', '#0ff' ][index];
-
-    fenceTextureWValues.forEach(px => {
-        fenceTextureHValues.forEach(py => {
-            const faceX = px / fenceTextureW + texelBiasW;
-            const faceY = py / fenceTextureH + texelBiasH;
-
-            const sideRunPortion = (1 - faceX) * visibleSideRun;
-            const surfaceDepth = sideRunPortion * perspectiveDepth / (fenceSurfaceXOffset - sideRunPortion);
-            const surfaceX = surfaceDepth / fenceSurfaceDepth;
-            const surfaceY = (faceY - cameraHeightRatio) * (perspectiveDepth + surfaceDepth) / perspectiveDepth + cameraHeightRatio;
-
-            if (surfaceY > 1) {
-                return;
-            }
-
-            if (surfaceY < 0) {
-                return;
-            }
-
-            const testIntensity = Math.round(Math.ceil(surfaceX * 4) * 0.25 * 255);
-            fenceCtx.fillStyle = 0.5 * surfaceY * fenceTextureH % 2 < 1 ? testColor : `rgb(${testIntensity}, ${testIntensity}, ${testIntensity})`;
-            fenceCtx.fillRect(px, index * fenceTextureH + py, 1, 1);
-        });
-    });
-});
-
-const fenceTexture = regl.texture({
-    width: fenceTextureW,
-    height: fenceTextureH,
-    min: 'nearest',
-    mag: 'nearest',
-    data: fenceCtx
-});
-
+const fenceTexture = createSpriteTexture(
+    fenceTextureW,
+    fenceTextureH,
+    fenceLevels,
+    ROAD_SETTINGS.fenceSpacing,
+    ROAD_SETTINGS.fenceXOffset
+);
 const fenceCmd = createFenceCommand(fenceTexture, fenceLevels.length);
 
 const segmentRenderer = createSegmentRenderer(regl);
