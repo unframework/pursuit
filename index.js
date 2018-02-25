@@ -350,7 +350,7 @@ function createSpriteTexture(textureW, textureH, levels, surfaceDepth, surfaceXO
 
         spriteCtx.clearRect(0, index * textureH, textureW, textureH);
 
-        const testColor = [ '#f00', '#0f0', '#00f', '#0ff' ][index];
+        const testColor = [ '#ff0', '#f0f', '#f00', '#0f0', '#00f', '#0ff' ][index];
 
         textureWValues.forEach(px => {
             textureHValues.forEach(py => {
@@ -386,10 +386,13 @@ function createSpriteTexture(textureW, textureH, levels, surfaceDepth, surfaceXO
     });
 }
 
-function createFenceCommand(spriteTexture, levelCount) {
+function createFenceCommand(spriteTexture, levelCount, closeupDistance, cameraHeight) {
     return regl({ context: { batchItem: { vert: glsl`
         #pragma glslify: roadSettings = require('./roadSettings')
         #pragma glslify: computeSegmentX = require('./segment', computeSegmentDX=computeSegmentDX)
+
+        #define closeupDistance float(${closeupDistance})
+        #define cameraHeight float(${cameraHeight})
 
         uniform float cameraOffset;
         uniform float cameraSideOffset;
@@ -397,17 +400,19 @@ function createFenceCommand(spriteTexture, levelCount) {
 
         varying float xOffset;
         varying float depth;
+        varying float closeupScale;
 
         void batchItemSetup(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
             xOffset = computeSegmentX(segmentDepth, segmentCurve);
             depth = segmentOffset + segmentDepth - cameraOffset;
+            closeupScale = clamp(depth / closeupDistance, 0.0, 1.0);
         }
 
         vec3 batchItemCenter(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
             return vec3(
                 hFlip * fenceXOffset + xOffset,
                 0,
-                fenceHeight * 0.5
+                cameraHeight + (fenceHeight * 0.5 - cameraHeight) * closeupScale
             );
         }
 
@@ -418,8 +423,8 @@ function createFenceCommand(spriteTexture, levelCount) {
             float visibleCurvatureAdjustment = hFlip * xOffsetDelta * depth / (depth + fenceSpacing);
 
             return vec2(
-                clamp(visibleSideWidth - visibleCurvatureAdjustment + 0.1, 0.2, 10000.0),
-                fenceHeight * 0.5
+                clamp(visibleSideWidth - visibleCurvatureAdjustment, 0.2, 10000.0),
+                fenceHeight * 0.5 * closeupScale
             );
         }
     `, frag: glsl`
@@ -437,6 +442,11 @@ function createFenceCommand(spriteTexture, levelCount) {
             return texture2D(
                 sprite,
                 (spritePos + vec2(0.0, level)) / vec2(1.0, float(levelCount))
+            ) * vec4(
+                1.0,
+                1.0,
+                1.0,
+                step(hFlip * facePosition.x, 0.1) // draw one side with an extra "lip" for overlap
             );
         }
     ` } }, uniforms: {
@@ -523,10 +533,10 @@ const markerHighlightColor = vec3.fromValues(...onecolor('#ffffff').toJSON().sli
 
 const segmentList = [];
 
-// no need for sprite distance closer than 30 because the added transition "pop" is too close and not worth the precision
+// no need for sprite distance closer than 20 because the added transition "pop" is too close and not worth the precision
 const fenceTextureW = 16;
 const fenceTextureH = 32;
-const fenceLevels = [ 40, 80, 160, 1000 ];
+const fenceLevels = [ 20, 40, 80, 160, 1000 ];
 
 const fenceTexture = createSpriteTexture(
     fenceTextureW,
@@ -535,7 +545,7 @@ const fenceTexture = createSpriteTexture(
     ROAD_SETTINGS.fenceSpacing,
     ROAD_SETTINGS.fenceXOffset
 );
-const fenceCmd = createFenceCommand(fenceTexture, fenceLevels.length);
+const fenceCmd = createFenceCommand(fenceTexture, fenceLevels.length, (ROAD_SETTINGS.fenceSpacing - 6), CAMERA_HEIGHT);
 
 const segmentRenderer = createSegmentRenderer(regl);
 const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(
@@ -614,6 +624,7 @@ const timer = new Timer(STEP, 0, function () {
     });
 
     fenceLevels.forEach((levelDistance, level) => {
+        // ensure absolute minimum distance for sprites to avoid extreme close-up flicker
         const prevDistance = level === 0 ? 0 : fenceLevels[level - 1];
 
         fenceSegmentItemBatchRenderer(segmentList, prevDistance, levelDistance, offset, camera, function (renderCommand) {
