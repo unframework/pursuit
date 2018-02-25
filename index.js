@@ -479,33 +479,43 @@ const fenceCtx = fenceCanvas.getContext('2d');
 const fenceTextureWValues = Array(...new Array(fenceTextureW)).map((_, index) => index);
 const fenceTextureHValues = Array(...new Array(fenceTextureH)).map((_, index) => index);
 
+const fenceSurfaceXOffset = ROAD_SETTINGS.fenceXOffset;
+const fenceSurfaceDepth = ROAD_SETTINGS.fenceSpacing;
+
 fenceLevels.forEach((perspectiveDepth, index) => {
     // @todo use middle of range?
-    const perspectiveDepthRatio = perspectiveDepth / (perspectiveDepth + ROAD_SETTINGS.fenceSpacing);
-    const xGradient = perspectiveDepthRatio - 1.0;
+    const visibleSideRun = fenceSurfaceXOffset * fenceSurfaceDepth / (perspectiveDepth + fenceSurfaceDepth);
 
     const cameraHeightRatio = CAMERA_HEIGHT / ROAD_SETTINGS.fenceHeight;
     const cameraHeightRatio2 = 1 - cameraHeightRatio;
 
-    const texelBias = 1 / (2 * fenceTextureH);
+    const texelBiasW = 1 / (2 * fenceTextureW);
+    const texelBiasH = 1 / (2 * fenceTextureH);
 
     fenceCtx.clearRect(0, index * fenceTextureH, fenceTextureW, fenceTextureH);
 
-    fenceCtx.fillStyle = [ '#f00', '#0f0', '#00f', '#0ff' ][index];
+    const testColor = [ '#f00', '#0f0', '#00f', '#0ff' ][index];
 
     fenceTextureWValues.forEach(px => {
         fenceTextureHValues.forEach(py => {
-            const faceX = px / fenceTextureW;
-            const faceY = py / fenceTextureH;
+            const faceX = px / fenceTextureW + texelBiasW;
+            const faceY = py / fenceTextureH + texelBiasH;
 
-            if (((faceX - 1) * xGradient) * cameraHeightRatio > faceY + texelBias) {
+            const sideRunPortion = (1 - faceX) * visibleSideRun;
+            const surfaceDepth = sideRunPortion * perspectiveDepth / (fenceSurfaceXOffset - sideRunPortion);
+            const surfaceX = surfaceDepth / fenceSurfaceDepth;
+            const surfaceY = (faceY - cameraHeightRatio) * (perspectiveDepth + surfaceDepth) / perspectiveDepth + cameraHeightRatio;
+
+            if (surfaceY > 1) {
                 return;
             }
 
-            if (1 - ((faceX - 1) * xGradient) * cameraHeightRatio2 < faceY + texelBias) {
+            if (surfaceY < 0) {
                 return;
             }
 
+            const testIntensity = Math.round(Math.ceil(surfaceX * 4) * 0.25 * 255);
+            fenceCtx.fillStyle = 0.5 * surfaceY * fenceTextureH % 2 < 1 ? testColor : `rgb(${testIntensity}, ${testIntensity}, ${testIntensity})`;
             fenceCtx.fillRect(px, index * fenceTextureH + py, 1, 1);
         });
     });
