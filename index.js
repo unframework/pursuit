@@ -135,7 +135,7 @@ roadCmd = regl({
             float notEdgeLane = step(roadMarkerWidth * 0.5, distToEdgeLane);
             float notMarker = notMidLane * notEdgeLane;
 
-            float quantLightPos = floor(lightDistance * 3.0 + 0.5) * 0.33;
+            float quantLightPos = floor(lightDistance * 4.0 + 0.5) / 4.0;
 
             vec3 color = notMarker < 1.0
                 ? mix(markerColor, markerHighlightColor, quantLightPos)
@@ -389,6 +389,8 @@ bgCmd = regl({
     frag: glsl`
         precision mediump float;
 
+        #define bandSize 0.1
+
         uniform vec3 topColor;
         uniform vec3 bottomColor;
         varying vec2 facePosition;
@@ -396,8 +398,9 @@ bgCmd = regl({
         void main() {
             float fade = clamp(1.0 - facePosition.y, 0.0, 1.0);
             float fadeSq = fade * fade;
+            float qFade = fadeSq - mod(fadeSq -0.01, bandSize);
 
-            gl_FragColor = vec4(mix(topColor, bottomColor, fadeSq), 1.0);
+            gl_FragColor = vec4(mix(topColor, bottomColor, qFade), 1.0);
         }
     `,
 
@@ -438,9 +441,9 @@ const fovY = 2.0 * Math.atan(Math.tan(fovX * 0.5) / aspect);
 
 const bgTopColor = vec3.fromValues(...onecolor('#005555').toJSON().slice(1));
 const bgBottomColor = vec3.fromValues(...onecolor('#ff5555').toJSON().slice(1));
-const roadColor = vec3.fromValues(...onecolor('#555500').toJSON().slice(1));
+const roadColor = vec3.fromValues(...onecolor('#000055').toJSON().slice(1));
 const roadHighlightColor = vec3.fromValues(...onecolor('#aa5500').toJSON().slice(1));
-const markerColor = vec3.fromValues(...onecolor('#aaffff').toJSON().slice(1));
+const markerColor = vec3.fromValues(...onecolor('#005555').toJSON().slice(1));
 const markerHighlightColor = vec3.fromValues(...onecolor('#ffffff').toJSON().slice(1));
 
 const segmentList = [];
