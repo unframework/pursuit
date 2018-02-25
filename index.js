@@ -369,7 +369,7 @@ function createFenceCommand(spriteTexture, levelCount) {
         uniform sampler2D sprite;
 
         vec4 batchItemColor(vec2 facePosition) {
-            vec2 spritePos = facePosition * vec2(1.0, 0.5) + vec2(1.0, 0.5);
+            vec2 spritePos = facePosition * vec2(hFlip, 0.5) + vec2(1.0, 0.5);
 
             return texture2D(
                 sprite,
@@ -469,18 +469,46 @@ const fenceCanvas = document.createElement('canvas');
 fenceCanvas.style.position = 'absolute';
 fenceCanvas.style.top = '0px';
 fenceCanvas.style.left = '0px';
-fenceCanvas.style.background = '#f0f';
+fenceCanvas.style.background = '#222';
 document.body.appendChild(fenceCanvas);
 
 fenceCanvas.width = fenceTextureW;
 fenceCanvas.height = fenceTextureH * 4;
 const fenceCtx = fenceCanvas.getContext('2d');
 
-fenceLevels.forEach((level, index) => {
+const fenceTextureWValues = Array(...new Array(fenceTextureW)).map((_, index) => index);
+const fenceTextureHValues = Array(...new Array(fenceTextureH)).map((_, index) => index);
+
+fenceLevels.forEach((perspectiveDepth, index) => {
+    // @todo use middle of range?
+    const perspectiveDepthRatio = perspectiveDepth / (perspectiveDepth + ROAD_SETTINGS.fenceSpacing);
+    const xGradient = perspectiveDepthRatio - 1.0;
+
+    const cameraHeightRatio = CAMERA_HEIGHT / ROAD_SETTINGS.fenceHeight;
+    const cameraHeightRatio2 = 1 - cameraHeightRatio;
+
+    const texelBias = 1 / (2 * fenceTextureH);
+
     fenceCtx.clearRect(0, index * fenceTextureH, fenceTextureW, fenceTextureH);
 
     fenceCtx.fillStyle = [ '#f00', '#0f0', '#00f', '#0ff' ][index];
-    fenceCtx.fillRect(0, index * fenceTextureH, fenceTextureW, fenceTextureH);
+
+    fenceTextureWValues.forEach(px => {
+        fenceTextureHValues.forEach(py => {
+            const faceX = px / fenceTextureW;
+            const faceY = py / fenceTextureH;
+
+            if (((faceX - 1) * xGradient) * cameraHeightRatio > faceY + texelBias) {
+                return;
+            }
+
+            if (1 - ((faceX - 1) * xGradient) * cameraHeightRatio2 < faceY + texelBias) {
+                return;
+            }
+
+            fenceCtx.fillRect(px, index * fenceTextureH + py, 1, 1);
+        });
+    });
 });
 
 const fenceTexture = regl.texture({
