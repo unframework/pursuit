@@ -17,7 +17,7 @@
 #define lightOffset 5.0
 
 #define fenceSpacing 10.0
-#define fenceHeight 3.0
+#define fenceHeight 2.0
 #define fenceXOffset 7.5
 
 void roadSettings() {}

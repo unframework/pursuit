@@ -454,7 +454,7 @@ const STEP = 1 / 60.0;
 const CAMERA_HEIGHT = 1.0;
 const DRAW_DISTANCE = 800;
 
-let offset = 0;
+let offset = 0; // @todo wrap periodically to avoid precision issues
 const speed = 200 / 3.6; // km/h to m/s
 
 const aspect = canvas.width / canvas.height;
