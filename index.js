@@ -57,6 +57,7 @@ roadCmd = regl({
 
         #pragma glslify: roadSettings = require('./roadSettings')
 
+        uniform float cameraSideOffset;
         uniform mat4 camera;
         uniform float segmentOffset;
         uniform float segmentLength;
@@ -84,7 +85,7 @@ roadCmd = regl({
 
             // @todo horizontal camera movement is totally busted
             viewPlanePosition = vec2(
-                gl_Position.w * roadHalfWidth / (edgePosition.x - gl_Position.x),
+                gl_Position.w * roadHalfWidth / (edgePosition.x - gl_Position.x) + cameraSideOffset,
                 roadY
             );
 
@@ -159,6 +160,7 @@ roadCmd = regl({
         roadHighlightColor: regl.prop('roadHighlightColor'),
         markerColor: regl.prop('markerColor'),
         markerHighlightColor: regl.prop('markerHighlightColor'),
+        cameraSideOffset: regl.prop('cameraSideOffset'),
         camera: regl.prop('camera')
     },
 
@@ -304,6 +306,7 @@ function createFenceCommand(isLeft, perspectiveDepth) {
         #define hFlip ${isLeft ? '-1.0' : '1.0'}
 
         uniform float cameraOffset;
+        uniform float cameraSideOffset;
 
         varying float xOffset;
         varying float depth;
@@ -324,11 +327,11 @@ function createFenceCommand(isLeft, perspectiveDepth) {
         vec2 batchItemSize(float segmentOffset, vec3 segmentCurve, float segmentDepth) {
             float xOffsetDelta = computeSegmentDX(fenceSpacing, segmentDepth, segmentCurve);
 
-            float visibleSideWidth = hFlip * (hFlip * fenceXOffset + xOffset) * fenceSpacing / (depth + fenceSpacing);
+            float visibleSideWidth = hFlip * (hFlip * fenceXOffset + xOffset - cameraSideOffset) * fenceSpacing / (depth + fenceSpacing);
             float visibleCurvatureAdjustment = hFlip * xOffsetDelta * depth / (depth + fenceSpacing);
 
             return vec2(
-                clamp(visibleSideWidth - visibleCurvatureAdjustment + 0.1, 0.5, 10000.0),
+                clamp(visibleSideWidth - visibleCurvatureAdjustment + 0.01, 0.5, 10000.0),
                 fenceHeight * 0.5
             );
         }
@@ -359,7 +362,8 @@ function createFenceCommand(isLeft, perspectiveDepth) {
             );
         }
     ` } }, uniforms: {
-        cameraOffset: regl.prop('cameraOffset')
+        cameraOffset: regl.prop('cameraOffset'),
+        cameraSideOffset: regl.prop('cameraSideOffset')
     } });
 }
 
@@ -493,8 +497,9 @@ const timer = new Timer(STEP, 0, function () {
     mat4.rotateX(camera, camera, -Math.PI / 2);
 
     // camera shake and offset
-    // @todo re-add horizontal shake
-    vec3.set(cameraPosition, 0, -offset, -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
+    const sideOffset = 3.0 * Math.cos(now * 0.75) + 0.02 * Math.cos(now * 3.17);
+
+    vec3.set(cameraPosition, -sideOffset, -offset, -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
     mat4.translate(camera, camera, cameraPosition);
 
     bgCmd({
@@ -508,6 +513,7 @@ const timer = new Timer(STEP, 0, function () {
             roadHighlightColor: roadHighlightColor,
             markerColor: markerColor,
             markerHighlightColor: markerHighlightColor,
+            cameraSideOffset: sideOffset,
             camera: camera
         });
     });
@@ -524,49 +530,57 @@ const timer = new Timer(STEP, 0, function () {
 
     fenceSegmentItemBatchRenderer(segmentList, 0, 40, offset, camera, function (renderCommand) {
         fenceL40Cmd({
-            cameraOffset: offset
+            cameraOffset: offset,
+            cameraSideOffset: sideOffset
         }, renderCommand);
     });
 
     fenceSegmentItemBatchRenderer(segmentList, 40, 80, offset, camera, function (renderCommand) {
         fenceL80Cmd({
-            cameraOffset: offset
+            cameraOffset: offset,
+            cameraSideOffset: sideOffset
         }, renderCommand);
     });
 
     fenceSegmentItemBatchRenderer(segmentList, 80, 160, offset, camera, function (renderCommand) {
         fenceL160Cmd({
-            cameraOffset: offset
+            cameraOffset: offset,
+            cameraSideOffset: sideOffset
         }, renderCommand);
     });
 
     fenceSegmentItemBatchRenderer(segmentList, 160, DRAW_DISTANCE, offset, camera, function (renderCommand) {
         fenceL1000Cmd({
-            cameraOffset: offset
+            cameraOffset: offset,
+            cameraSideOffset: sideOffset
         }, renderCommand);
     });
 
     fenceSegmentItemBatchRenderer(segmentList, 0, 40, offset, camera, function (renderCommand) {
         fenceR40Cmd({
-            cameraOffset: offset
+            cameraOffset: offset,
+            cameraSideOffset: sideOffset
         }, renderCommand);
     });
 
     fenceSegmentItemBatchRenderer(segmentList, 40, 80, offset, camera, function (renderCommand) {
         fenceR80Cmd({
-            cameraOffset: offset
+            cameraOffset: offset,
+            cameraSideOffset: sideOffset
         }, renderCommand);
     });
 
     fenceSegmentItemBatchRenderer(segmentList, 80, 160, offset, camera, function (renderCommand) {
         fenceR160Cmd({
-            cameraOffset: offset
+            cameraOffset: offset,
+            cameraSideOffset: sideOffset
         }, renderCommand);
     });
 
     fenceSegmentItemBatchRenderer(segmentList, 160, DRAW_DISTANCE, offset, camera, function (renderCommand) {
         fenceR1000Cmd({
-            cameraOffset: offset
+            cameraOffset: offset,
+            cameraSideOffset: sideOffset
         }, renderCommand);
     });
 });
