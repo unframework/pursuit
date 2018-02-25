@@ -17,8 +17,10 @@ const ROAD_SETTINGS = parseGLSLConstants(
 
 document.title = 'Pursuit Hunter';
 
+document.body.parentElement.style.height = '100%';
 document.body.style.margin = '0';
 document.body.style.padding = '0';
+document.body.style.height = '100%';
 document.body.style.background = '#70787f';
 document.body.style.position = 'relative';
 
@@ -27,9 +29,32 @@ canvas.style.position = 'absolute';
 canvas.style.top = '0vh';
 canvas.style.left = '0vw';
 canvas.style.width = '100vw';
-canvas.style.height = '100vh';
+canvas.style.height = 'calc(100vh - 120px)';
 canvas.style.background = '#fff';
 document.body.appendChild(canvas);
+
+const player = document.createElement('iframe');
+player.width = "100%";
+player.height = "120";
+player.scrolling = "no";
+player.frameborder = "no";
+player.style.border = "0";
+player.allow = "autoplay";
+player.src = 'https://w.soundcloud.com/player/?' + [
+    'url=https%3A//api.soundcloud.com/playlists/457658343',
+    'color=%23ff5555',
+    'auto_play=' + JSON.stringify(window.location.host.indexOf('localhost') === -1),
+    'hide_related=false',
+    'show_comments=true',
+    'show_user=true',
+    'show_reposts=false',
+    'show_teaser=true'
+].join('&');
+
+player.style.position = 'absolute';
+player.style.bottom = '0';
+player.style.left = '0vw';
+document.body.appendChild(player);
 
 canvas.width = canvas.offsetWidth;
 canvas.height = canvas.offsetHeight;
@@ -37,7 +62,7 @@ const aspectRatio = canvas.height / canvas.width;
 
 const div = document.createElement('div');
 div.style.position = 'fixed';
-div.style.bottom = '10px';
+div.style.bottom = 'calc(120px + 10px)';
 div.style.right = '20px';
 div.style.opacity = 0.2;
 div.style.color = '#fff';
