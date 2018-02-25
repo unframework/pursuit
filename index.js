@@ -296,7 +296,7 @@ postLightCmd = regl({ context: { batchItem: { vert: glsl`
     }
 ` } } });
 
-function createFenceCommand(isLeft, perspectiveDepth) {
+function createFenceCommand(isLeft, perspectiveDepth, cameraHeight) {
     const perspectiveDepthRatio = perspectiveDepth / (perspectiveDepth + ROAD_SETTINGS.fenceSpacing);
 
     return regl({ context: { batchItem: { vert: glsl`
@@ -331,7 +331,7 @@ function createFenceCommand(isLeft, perspectiveDepth) {
             float visibleCurvatureAdjustment = hFlip * xOffsetDelta * depth / (depth + fenceSpacing);
 
             return vec2(
-                clamp(visibleSideWidth - visibleCurvatureAdjustment + 0.01, 0.2, 10000.0),
+                clamp(visibleSideWidth - visibleCurvatureAdjustment + 0.1, 0.2, 10000.0),
                 fenceHeight * 0.5
             );
         }
@@ -341,6 +341,7 @@ function createFenceCommand(isLeft, perspectiveDepth) {
         #define texelSize 0.1
         #define depthRatio ${perspectiveDepthRatio}
         #define hFlip ${isLeft ? '-1.0' : '1.0'}
+        #define cameraHeight ${cameraHeight + 0.00001}
 
         vec4 batchItemColor(vec2 facePosition) {
             vec2 surfacePosition = facePosition * vec2(hFlip * 1.0, fenceHeight * 0.5);
@@ -349,8 +350,8 @@ function createFenceCommand(isLeft, perspectiveDepth) {
 
             float xGradient = depthRatio - 1.0;
 
-            float cameraHeightRatio = 1.0 / (fenceHeight * 0.5);
-            float cameraHeightRatio2 = (fenceHeight - 1.0) / (fenceHeight * 0.5);
+            float cameraHeightRatio = cameraHeight / (fenceHeight * 0.5);
+            float cameraHeightRatio2 = (fenceHeight - cameraHeight) / (fenceHeight * 0.5);
 
             return vec4(
                 0.55 + faceTexelPosition.x * 0.3,
@@ -366,16 +367,6 @@ function createFenceCommand(isLeft, perspectiveDepth) {
         cameraSideOffset: regl.prop('cameraSideOffset')
     } });
 }
-
-// no need for sprite distance closer than 40 because the added transition "pop" is too close and not worth the precision
-const fenceL1Cmd = createFenceCommand(true, 30);
-const fenceL2Cmd = createFenceCommand(true, 60);
-const fenceL3Cmd = createFenceCommand(true, 120);
-const fenceL4Cmd = createFenceCommand(true, 1000);
-const fenceR1Cmd = createFenceCommand(false, 30);
-const fenceR2Cmd = createFenceCommand(false, 60);
-const fenceR3Cmd = createFenceCommand(false, 120);
-const fenceR4Cmd = createFenceCommand(false, 1000);
 
 bgCmd = regl({
     vert: glsl`
@@ -452,6 +443,16 @@ const markerHighlightColor = vec3.fromValues(...onecolor('#ffffff').toJSON().sli
 
 const segmentList = [];
 
+// no need for sprite distance closer than 30 because the added transition "pop" is too close and not worth the precision
+const fenceL1Cmd = createFenceCommand(true, 30, CAMERA_HEIGHT);
+const fenceL2Cmd = createFenceCommand(true, 45, CAMERA_HEIGHT);
+const fenceL3Cmd = createFenceCommand(true, 90, CAMERA_HEIGHT);
+const fenceL4Cmd = createFenceCommand(true, 1000, CAMERA_HEIGHT);
+const fenceR1Cmd = createFenceCommand(false, 30, CAMERA_HEIGHT);
+const fenceR2Cmd = createFenceCommand(false, 45, CAMERA_HEIGHT);
+const fenceR3Cmd = createFenceCommand(false, 90, CAMERA_HEIGHT);
+const fenceR4Cmd = createFenceCommand(false, 1000, CAMERA_HEIGHT);
+
 const segmentRenderer = createSegmentRenderer(regl);
 const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(
     regl,
@@ -497,7 +498,7 @@ const timer = new Timer(STEP, 0, function () {
     mat4.rotateX(camera, camera, -Math.PI / 2);
 
     // camera shake and offset
-    const sideOffset = 3.0 * Math.cos(now * 0.75) + 0.02 * Math.cos(now * 3.17);
+    const sideOffset = 2.0 * Math.cos(now * 0.75) + 0.02 * Math.cos(now * 3.17);
 
     vec3.set(cameraPosition, -sideOffset, -offset, -CAMERA_HEIGHT + 0.02 * Math.cos(now * 2.31));
     mat4.translate(camera, camera, cameraPosition);
