@@ -358,9 +358,9 @@ function createSpriteTexture(textureW, textureH, levels, surfaceDepth, surfaceXO
                 const faceY = py / textureH + texelBiasH;
 
                 const sideRunPortion = (1 - faceX) * visibleSideRun;
-                const surfaceDepth = sideRunPortion * perspectiveDepth / (surfaceXOffset - sideRunPortion);
-                const surfaceX = surfaceDepth / surfaceDepth;
-                const surfaceY = (faceY - cameraHeightRatio) * (perspectiveDepth + surfaceDepth) / perspectiveDepth + cameraHeightRatio;
+                const surfaceZ = sideRunPortion * perspectiveDepth / (surfaceXOffset - sideRunPortion);
+                const surfaceX = surfaceZ / surfaceDepth;
+                const surfaceY = (faceY - cameraHeightRatio) * (perspectiveDepth + surfaceZ) / perspectiveDepth + cameraHeightRatio;
 
                 if (surfaceY > 1) {
                     return;
