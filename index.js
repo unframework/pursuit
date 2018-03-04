@@ -388,7 +388,7 @@ function createSpriteTexture(sourcePromise, textureW, textureH, levels, surfaceD
                     const surfaceX = surfaceZ / surfaceDepth;
                     const surfaceY = (faceY - cameraHeightRatio) * (perspectiveDepth + surfaceZ) / perspectiveDepth + cameraHeightRatio;
 
-                    if (surfaceY > 1) {
+                    if (surfaceY >= 1) {
                         return;
                     }
 
@@ -582,7 +582,7 @@ const markerHighlightColor = vec3.fromValues(...onecolor('#ffffff').toJSON().sli
 const segmentList = [];
 
 // no need for sprite distance closer than 20 because the added transition "pop" is too close and not worth the precision
-const fenceTextureW = 16;
+const fenceTextureW = 32;
 const fenceTextureH = 32;
 const fenceLevels = [ 20, 40, 80, 160, 1000 ];
 
@@ -597,7 +597,7 @@ const fenceTexture = createSpriteTexture(
     ROAD_SETTINGS.fenceSpacing,
     ROAD_SETTINGS.fenceXOffset
 );
-const fenceCmd = createFenceCommand(fenceTexture, fenceLevels.length, (ROAD_SETTINGS.fenceSpacing - 6), CAMERA_HEIGHT);
+const fenceCmd = createFenceCommand(fenceTexture, fenceLevels.length, (ROAD_SETTINGS.fenceSpacing - 3), CAMERA_HEIGHT);
 
 const segmentRenderer = createSegmentRenderer(regl);
 const lightSegmentItemBatchRenderer = createSegmentItemBatchRenderer(

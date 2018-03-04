@@ -18,7 +18,7 @@
 
 // fence spacing should fit evenly within light spacing
 #define fenceSpacing 12.5
-#define fenceHeight 3.0
+#define fenceHeight 1.75
 #define fenceXOffset 7.5
 
 void roadSettings() {}
