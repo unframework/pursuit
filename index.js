@@ -323,7 +323,7 @@ postLightCmd = regl({ context: { batchItem: { vert: glsl`
     }
 ` } } });
 
-function createSpriteTexture(textureW, textureH, levels, surfaceDepth, surfaceXOffset) {
+function createSpriteTexture(sourcePromise, textureW, textureH, levels, surfaceDepth, surfaceXOffset) {
     const spriteCanvas = document.createElement('canvas');
     spriteCanvas.style.position = 'absolute';
     spriteCanvas.style.top = '0px';
@@ -338,52 +338,85 @@ function createSpriteTexture(textureW, textureH, levels, surfaceDepth, surfaceXO
     const textureWValues = Array(...new Array(textureW)).map((_, index) => index);
     const textureHValues = Array(...new Array(textureH)).map((_, index) => index);
 
-    levels.forEach((perspectiveDepth, index) => {
-        // @todo use middle of range?
-        const visibleSideRun = surfaceXOffset * surfaceDepth / (perspectiveDepth + surfaceDepth);
-
-        const cameraHeightRatio = CAMERA_HEIGHT / ROAD_SETTINGS.fenceHeight;
-        const cameraHeightRatio2 = 1 - cameraHeightRatio;
-
-        const texelBiasW = 1 / (2 * textureW);
-        const texelBiasH = 1 / (2 * textureH);
-
-        spriteCtx.clearRect(0, index * textureH, textureW, textureH);
-
-        const testColor = [ '#ff0', '#f0f', '#f00', '#0f0', '#00f', '#0ff' ][index];
-
-        textureWValues.forEach(px => {
-            textureHValues.forEach(py => {
-                const faceX = px / textureW + texelBiasW;
-                const faceY = py / textureH + texelBiasH;
-
-                const sideRunPortion = (1 - faceX) * visibleSideRun;
-                const surfaceZ = sideRunPortion * perspectiveDepth / (surfaceXOffset - sideRunPortion);
-                const surfaceX = surfaceZ / surfaceDepth;
-                const surfaceY = (faceY - cameraHeightRatio) * (perspectiveDepth + surfaceZ) / perspectiveDepth + cameraHeightRatio;
-
-                if (surfaceY > 1) {
-                    return;
-                }
-
-                if (surfaceY < 0) {
-                    return;
-                }
-
-                const testIntensity = Math.round(Math.ceil(surfaceX * 4) * 0.25 * 255);
-                spriteCtx.fillStyle = 0.5 * surfaceY * textureH % 2 < 1 ? testColor : `rgb(${testIntensity}, ${testIntensity}, ${testIntensity})`;
-                spriteCtx.fillRect(px, index * textureH + py, 1, 1);
-            });
-        });
-    });
-
-    return regl.texture({
+    // pre-create empty texture for later fill
+    const spriteTexture = regl.texture({
         width: textureW,
         height: textureH,
         min: 'nearest',
-        mag: 'nearest',
-        data: spriteCtx
+        mag: 'nearest'
     });
+
+    sourcePromise.then(function (sourceImage) {
+        const sourceW = sourceImage.width;
+        const sourceH = sourceImage.height;
+
+        const sourceCanvas = document.createElement('canvas');
+        sourceCanvas.style.position = 'absolute';
+        sourceCanvas.style.top = '0px';
+        sourceCanvas.style.left = '0px';
+        sourceCanvas.style.background = '#222';
+        document.body.appendChild(sourceCanvas);
+
+        sourceCanvas.width = sourceW;
+        sourceCanvas.height = sourceH;
+
+        const sourceCtx = sourceCanvas.getContext('2d');
+        sourceCtx.drawImage(sourceImage, 0, 0);
+
+        // render the texture
+        levels.forEach((perspectiveDepth, index) => {
+            // @todo use middle of range?
+            const visibleSideRun = surfaceXOffset * surfaceDepth / (perspectiveDepth + surfaceDepth);
+
+            const cameraHeightRatio = CAMERA_HEIGHT / ROAD_SETTINGS.fenceHeight;
+            const cameraHeightRatio2 = 1 - cameraHeightRatio;
+
+            const texelBiasW = 1 / (2 * textureW);
+            const texelBiasH = 1 / (2 * textureH);
+
+            spriteCtx.clearRect(0, index * textureH, textureW, textureH);
+
+            const testColor = [ '#ff0', '#f0f', '#f00', '#0f0', '#00f', '#0ff' ][index];
+
+            textureWValues.forEach(px => {
+                textureHValues.forEach(py => {
+                    const faceX = px / textureW + texelBiasW;
+                    const faceY = py / textureH + texelBiasH;
+
+                    const sideRunPortion = (1 - faceX) * visibleSideRun;
+                    const surfaceZ = sideRunPortion * perspectiveDepth / (surfaceXOffset - sideRunPortion);
+                    const surfaceX = surfaceZ / surfaceDepth;
+                    const surfaceY = (faceY - cameraHeightRatio) * (perspectiveDepth + surfaceZ) / perspectiveDepth + cameraHeightRatio;
+
+                    if (surfaceY > 1) {
+                        return;
+                    }
+
+                    if (surfaceY < 0) {
+                        return;
+                    }
+
+                    const sourceX = Math.floor(surfaceX * sourceW);
+                    const sourceY = sourceH - 1 - Math.floor(surfaceY * sourceH);
+                    const sourcePixel = sourceCtx.getImageData(sourceX, sourceY, 1, 1).data;
+
+                    spriteCtx.fillStyle = `rgb(${sourcePixel[0]}, ${sourcePixel[1]}, ${sourcePixel[2]})`;
+                    spriteCtx.fillRect(px, index * textureH + py, 1, 1);
+                });
+            });
+        });
+
+        // upload to texture
+        spriteTexture({
+            width: textureW,
+            height: textureH,
+            min: 'nearest',
+            mag: 'nearest',
+            data: spriteCtx
+        });
+    });
+
+    return spriteTexture;
 }
 
 function createFenceCommand(spriteTexture, levelCount, closeupDistance, cameraHeight) {
@@ -509,6 +542,21 @@ bgCmd = regl({
     count: 4
 });
 
+function loadImage(imageURI) {
+    const textureImage = new Image();
+
+    const texturePromise = new Promise(function (resolve) {
+        textureImage.onload = function () {
+            resolve(textureImage);
+        };
+    });
+
+    textureImage.crossOrigin = 'anonymous'; // prevent "tainted canvas" warning when blitting this
+    textureImage.src = imageURI;
+
+    return texturePromise;
+}
+
 const cameraPosition = vec3.create();
 const camera = mat4.create();
 
@@ -538,7 +586,11 @@ const fenceTextureW = 16;
 const fenceTextureH = 32;
 const fenceLevels = [ 20, 40, 80, 160, 1000 ];
 
+const fenceImageURI = 'data:application/octet-stream;base64,' + btoa(require('fs').readFileSync(__dirname + '/wall.png', 'binary'))
+const fenceImagePromise = loadImage(fenceImageURI);
+
 const fenceTexture = createSpriteTexture(
+    fenceImagePromise,
     fenceTextureW,
     fenceTextureH,
     fenceLevels,
