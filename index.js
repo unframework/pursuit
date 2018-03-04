@@ -355,7 +355,7 @@ function createSpriteTexture(sourcePromise, textureW, textureH, levels, surfaceD
         sourceCanvas.style.top = '0px';
         sourceCanvas.style.left = '0px';
         sourceCanvas.style.background = '#222';
-        document.body.appendChild(sourceCanvas);
+        // document.body.appendChild(sourceCanvas);
 
         sourceCanvas.width = sourceW;
         sourceCanvas.height = sourceH;
